@@ -27,15 +27,15 @@ jobs:
 
       # ── Build Admin Portal ────────────────────────────────────────────────
       - name: Build Admin Portal
-        run: npm run build -w @locqar/admin-portal -- --base=/Locqar/admin/
+        run: npm run build -w @locqar/admin-portal -- --base=/locqar-master/admin/
 
       # ── Build Customer App ────────────────────────────────────────────────
       - name: Build Customer App
-        run: npm run build -w @locqar/customer-app -- --base=/Locqar/customer/
+        run: npm run build -w @locqar/customer-app -- --base=/locqar-master/customer/
 
       # ── Build Courier App ─────────────────────────────────────────────────
       - name: Build Courier App
-        run: npm run build -w @locqar/courier-app -- --base=/Locqar/courier/
+        run: npm run build -w @locqar/courier-app -- --base=/locqar-master/courier/
 
       # ── Combine all builds into one deploy folder ─────────────────────────
       - name: Combine builds
