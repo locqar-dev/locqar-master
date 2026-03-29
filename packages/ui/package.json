@@ -1,0 +1,15 @@
+{
+  "name": "@locqar/ui",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./theme": "./src/theme/adapter.js",
+    "./css/animations.css": "./src/css/animations.css"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0"
+  }
+}

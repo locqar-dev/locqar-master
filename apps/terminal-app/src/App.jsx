@@ -1,0 +1,174 @@
+import { useState, useCallback } from 'react'
+import WelcomeScreen from './screens/WelcomeScreen'
+import HomeScreen from './screens/HomeScreen'
+import PinEntryScreen from './screens/PinEntryScreen'
+import BoxSizeScreen from './screens/BoxSizeScreen'
+import DoorOpenScreen from './screens/DoorOpenScreen'
+import ThankYouScreen from './screens/ThankYouScreen'
+import MobileMoneyScreen from './screens/MobileMoneyScreen'
+import LoginScreen from './screens/LoginScreen'
+import CourierDashboard from './screens/CourierDashboard'
+import CourierDropOffScreen from './screens/CourierDropOffScreen'
+import RecallPackageScreen from './screens/RecallPackageScreen'
+import StudentDashboard from './screens/StudentDashboard'
+import { ErrorModal, ConfirmModal, DoorOpenModal } from './components/Modal'
+
+const INITIAL_SCREEN = 'welcome'
+
+export default function App() {
+  const [screen, setScreen] = useState(INITIAL_SCREEN)
+  const [history, setHistory] = useState([])
+  const [modal, setModal] = useState(null)
+  const [sessionData, setSessionData] = useState({})
+
+  const navigate = useCallback((to, data = {}) => {
+    setHistory(prev => [...prev, screen])
+    setSessionData(prev => ({ ...prev, ...data }))
+    setScreen(to)
+    setModal(null)
+  }, [screen])
+
+  const goBack = useCallback(() => {
+    const prev = history[history.length - 1]
+    if (prev) {
+      setHistory(h => h.slice(0, -1))
+      setScreen(prev)
+      setModal(null)
+    }
+  }, [history])
+
+  const goHome = useCallback(() => {
+    setHistory([])
+    setSessionData({})
+    setScreen('home')
+    setModal(null)
+  }, [])
+
+  const goWelcome = useCallback(() => {
+    setHistory([])
+    setSessionData({})
+    setScreen('welcome')
+    setModal(null)
+  }, [])
+
+  const randomDoor = () => Math.floor(Math.random() * 12) + 1
+
+  const renderScreen = () => {
+    switch (screen) {
+      case 'welcome':
+        return <WelcomeScreen onNext={() => navigate('home')} />
+      case 'home':
+        return (
+          <HomeScreen
+            onDropOff={() => navigate('dropoff-pin')}
+            onPickUp={() => navigate('pickup-pin')}
+            onStudentLogin={() => navigate('student-login')}
+            onAgentLogin={() => navigate('courier-login')}
+          />
+        )
+      case 'dropoff-pin':
+        return <PinEntryScreen title="Drop Off Package" onConfirm={(pin) => navigate('dropoff-box-size', { pin })} onBack={goBack} />
+      case 'dropoff-box-size':
+        return <BoxSizeScreen onSelect={(size) => navigate('dropoff-door-open', { boxSize: size, doorNumber: randomDoor() })} onBack={goBack} />
+      case 'dropoff-door-open':
+        return <DoorOpenScreen type="dropoff" doorNumber={sessionData.doorNumber || 3} onDone={() => navigate('dropoff-thank-you')} onCancel={goBack} />
+      case 'dropoff-thank-you':
+        return <ThankYouScreen message="See you next time" onTimeout={goWelcome} />
+      case 'pickup-pin':
+        return (
+          <PinEntryScreen
+            title="Pick Up Package"
+            onConfirm={(pin) => {
+              const needsPayment = Math.random() > 0.5
+              if (needsPayment) navigate('pickup-pay', { pin })
+              else navigate('pickup-door-open', { pin, doorNumber: randomDoor() })
+            }}
+            onBack={goBack}
+          />
+        )
+      case 'pickup-pay':
+        return <MobileMoneyScreen onPay={(d) => navigate('pickup-door-open', { ...d, doorNumber: randomDoor() })} onBack={goBack} />
+      case 'pickup-door-open':
+        return <DoorOpenScreen type="pickup" doorNumber={sessionData.doorNumber || 3} onDone={() => navigate('pickup-thank-you')} />
+      case 'pickup-thank-you':
+        return <ThankYouScreen message="See you next time" onTimeout={goWelcome} />
+      case 'student-login':
+        return <LoginScreen title="Student Login" onConfirm={(c) => navigate('student-dashboard', { studentCreds: c })} onBack={goBack} />
+      case 'student-dashboard':
+        return <StudentDashboard onSelectSize={(s) => navigate('student-door-open', { boxSize: s, doorNumber: randomDoor() })} onBack={goHome} />
+      case 'student-door-open':
+        return <DoorOpenScreen type="dropoff" doorNumber={sessionData.doorNumber || 3} onDone={() => navigate('student-thank-you')} onCancel={goBack} />
+      case 'student-thank-you':
+        return <ThankYouScreen message="See you soon" onTimeout={goWelcome} />
+      case 'courier-login':
+        return <LoginScreen title="Courier Login" onConfirm={(c) => navigate('courier-dashboard', { courierCreds: c })} onBack={goBack} />
+      case 'courier-dashboard':
+        return <CourierDashboard onDropOff={() => navigate('courier-dropoff')} onViewPackages={() => navigate('courier-view-packages')} onBack={goHome} />
+      case 'courier-dropoff':
+        return (
+          <CourierDropOffScreen
+            onOpen={(data) => {
+              const door = randomDoor()
+              setSessionData(prev => ({ ...prev, ...data, doorNumber: door }))
+              setModal({ type: 'door-open', doorNumber: door, instruction: 'Drop off package and close door', cancelLabel: 'Press X to cancel' })
+            }}
+            onBack={goBack}
+          />
+        )
+      case 'courier-view-packages':
+        return <RecallPackageScreen onBack={goBack} onRecallDone={() => navigate('courier-dashboard')} />
+      default:
+        return <WelcomeScreen onNext={() => navigate('home')} />
+    }
+  }
+
+  const renderModal = () => {
+    if (!modal) return null
+    switch (modal.type) {
+      case 'door-open':
+        return <DoorOpenModal doorNumber={modal.doorNumber} instruction={modal.instruction} cancelLabel={modal.cancelLabel} onCancel={() => setModal(null)} />
+      case 'confirm-fit':
+        return (
+          <ConfirmModal
+            title={`Locker ${modal.doorNumber}`} subtitle="Drop-off Confirmation" question="Did the package fit?"
+            onYes={() => { setModal(null); navigate('courier-dashboard') }}
+            onNo={() => setModal({ type: 'reuse-door', doorNumber: modal.doorNumber })}
+            onClose={() => setModal(null)}
+          />
+        )
+      case 'reuse-door':
+        return (
+          <ConfirmModal
+            title={`Locker ${modal.doorNumber}`} subtitle="Reuse Door" question="Reuse this door for the same recipient?"
+            onYes={() => setModal({ type: 'door-open', doorNumber: modal.doorNumber, instruction: 'Add package and close door', cancelLabel: null })}
+            onNo={() => setModal(null)}
+            onClose={() => setModal(null)}
+          />
+        )
+      case 'error':
+        return <ErrorModal title={modal.title} message={modal.message} onCancel={() => setModal(null)} />
+      default:
+        return null
+    }
+  }
+
+  return (
+    <div className="h-screen w-screen relative overflow-hidden"
+         style={{ backgroundImage: 'url(/background.jpg)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+      {renderScreen()}
+      {renderModal()}
+
+      {modal?.type === 'door-open' && (
+        <button
+          onClick={() => setModal({ type: 'confirm-fit', doorNumber: modal.doorNumber })}
+          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60]
+            text-sm font-medium text-white/60 px-6 py-3 rounded-full
+            border border-white/20 bg-white/10 backdrop-blur-sm
+            hover:bg-white/20 active:scale-[0.98] transition-all"
+        >
+          Simulate: Door Closed
+        </button>
+      )}
+    </div>
+  )
+}

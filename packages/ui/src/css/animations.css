@@ -1,0 +1,38 @@
+/* @locqar/ui shared animations — prefixed with locqar- to avoid collisions */
+
+@keyframes locqar-shimmer {
+  0% { background-position: -200% 0 }
+  100% { background-position: 200% 0 }
+}
+
+@keyframes locqar-toast {
+  0% { opacity: 0; transform: translateY(-16px) scale(0.9) }
+  100% { opacity: 1; transform: translateY(0) scale(1) }
+}
+
+@keyframes locqar-fadeUp {
+  from { opacity: 0; transform: translateY(16px) }
+  to { opacity: 1; transform: translateY(0) }
+}
+
+@keyframes locqar-fadeIn {
+  from { opacity: 0 }
+  to { opacity: 1 }
+}
+
+@keyframes locqar-pop {
+  0% { transform: scale(0.95) }
+  60% { transform: scale(1.02) }
+  100% { transform: scale(1) }
+}
+
+@keyframes locqar-float {
+  0%, 100% { transform: translateY(0) }
+  50% { transform: translateY(-8px) }
+}
+
+@keyframes locqar-checkPop {
+  0% { transform: scale(0) }
+  60% { transform: scale(1.2) }
+  100% { transform: scale(1) }
+}

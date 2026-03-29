@@ -1,0 +1,74 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      # ── Build Admin Portal ────────────────────────────────────────────────
+      - name: Build Admin Portal
+        run: npm run build -w @locqar/admin-portal -- --base=/Locqar/admin/
+
+      # ── Build Customer App ────────────────────────────────────────────────
+      - name: Build Customer App
+        run: npm run build -w @locqar/customer-app -- --base=/Locqar/customer/
+
+      # ── Build Courier App ─────────────────────────────────────────────────
+      - name: Build Courier App
+        run: npm run build -w @locqar/courier-app -- --base=/Locqar/courier/
+
+      # ── Combine all builds into one deploy folder ─────────────────────────
+      - name: Combine builds
+        run: |
+          mkdir -p deploy/admin deploy/customer deploy/courier
+
+          cp -r apps/admin-portal/dist/. deploy/admin/
+          cp -r apps/customer-app/dist/.  deploy/customer/
+          cp -r apps/courier-app/dist/.   deploy/courier/
+
+          # Root index — redirect to customer app
+          cat > deploy/index.html << 'HTML'
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta charset="utf-8">
+              <title>LocQar</title>
+              <meta http-equiv="refresh" content="0;url=customer/">
+              <style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f8f9fa}</style>
+            </head>
+            <body>
+              <div style="text-align:center">
+                <h2>LocQar Platform</h2>
+                <p><a href="customer/">Customer App</a> · <a href="admin/">Admin Portal</a> · <a href="courier/">Courier App</a></p>
+              </div>
+            </body>
+          </html>
+          HTML
+
+      # ── Push to gh-pages branch ───────────────────────────────────────────
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./deploy
+          force_orphan: true

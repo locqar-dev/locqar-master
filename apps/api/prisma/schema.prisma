@@ -1,0 +1,1160 @@
+// ── Generator + Datasource ───────────────────────────────────────────────────
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Enums ────────────────────────────────────────────────────────────────────
+
+enum UserType {
+  STAFF
+  COURIER
+  DRIVER
+  CUSTOMER
+}
+
+enum StaffRole {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  AGENT
+  SUPPORT
+  VIEWER
+}
+
+enum PackageStatus {
+  pending
+  at_warehouse
+  at_dropbox
+  assigned
+  accepted
+  in_transit_to_locker
+  in_transit_to_home
+  delivered_to_locker
+  delivered_to_home
+  picked_up
+  recalled
+  expired
+  // Winnsen send & return flows
+  at_locker_pending_courier
+  return_at_locker
+  return_in_transit
+}
+
+enum DeliveryMethod {
+  warehouse_to_locker
+  dropbox_to_locker
+  locker_to_home
+}
+
+enum PackageSize {
+  S
+  M
+  L
+  XL
+}
+
+enum LockerStatus {
+  available
+  occupied
+  reserved
+  maintenance
+}
+
+enum LockerSize {
+  S
+  M
+  L
+  XL
+}
+
+enum VehicleType {
+  motorcycle
+  bicycle
+  van
+  truck
+  car
+}
+
+enum VehicleStatus {
+  active
+  maintenance
+  inactive
+  retired
+}
+
+enum CourierStatus {
+  active
+  inactive
+  suspended
+}
+
+enum ShiftStatus {
+  scheduled
+  active
+  completed
+  cancelled
+}
+
+enum TaskStatus {
+  assigned
+  accepted
+  in_transit
+  completed
+  failed
+  recalled
+}
+
+enum ExitType {
+  resignation
+  termination
+  retirement
+  contract_end
+}
+
+enum ExitReasonCategory {
+  career_growth
+  compensation
+  culture
+  relocation
+  performance
+  contract_end
+  retirement
+  other
+}
+
+enum OffboardingStatus {
+  in_progress
+  completed
+}
+
+enum PayPeriodStatus {
+  draft
+  processing
+  review
+  approved
+  paid
+}
+
+enum PaymentMethod {
+  mtn_momo
+  telecel_cash
+  airteltigo_money
+  card
+  wallet
+  bank_transfer
+}
+
+enum PaymentStatus {
+  pending
+  processing
+  completed
+  failed
+  refunded
+}
+
+enum TransactionType {
+  credit
+  debit
+}
+
+enum SubscriptionStatus {
+  active
+  expired
+  cancelled
+  trial
+}
+
+enum AlertSeverity {
+  info
+  warning
+  critical
+}
+
+enum NotificationChannel {
+  sms
+  whatsapp
+  push
+  email
+  in_app
+}
+
+enum ExceptionStatus {
+  open
+  investigating
+  resolved
+  escalated
+}
+
+enum ExceptionType {
+  damage
+  loss
+  delay
+  wrong_delivery
+  customer_complaint
+  locker_fault
+  other
+}
+
+enum BulkShipmentStatus {
+  draft
+  validated
+  processing
+  completed
+  failed
+}
+
+enum OnboardingDocStatus {
+  pending
+  submitted
+  verified
+  rejected
+}
+
+enum WebhookEvent {
+  package_created
+  package_status_changed
+  package_delivered
+  payment_completed
+  shipment_created
+}
+
+// ── Auth & Users ──────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(uuid())
+  userType      UserType
+  email         String?   @unique
+  phone         String?   @unique
+  passwordHash  String?
+  name          String
+  avatar        String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Staff-specific
+  staffRole     StaffRole?
+  terminalId    String?
+  terminal      Terminal?  @relation("StaffTerminal", fields: [terminalId], references: [id])
+  department    String?
+  jobTitle      String?
+  employeeId    String?    @unique
+
+  // Courier-specific
+  courier       Courier?
+
+  // Driver-specific
+  driver        Driver?
+
+  // Customer-specific
+  customer      Customer?
+
+  refreshTokens RefreshToken[]
+  otpCodes      OtpCode[]
+  auditLogs     AuditLog[]
+
+  // HRIS
+  onboardingRecord  OnboardingRecord?
+  offboardingRecord OffboardingRecord?
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id         String   @id @default(uuid())
+  token      String   @unique
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  revokedAt  DateTime?
+  userAgent  String?
+  ipAddress  String?
+
+  @@map("refresh_tokens")
+}
+
+model OtpCode {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code        String
+  phone       String
+  attempts    Int      @default(0)
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  @@map("otp_codes")
+}
+
+// ── Terminals & Lockers ───────────────────────────────────────────────────────
+
+model Terminal {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  code        String   @unique
+  address     String
+  city        String
+  region      String
+  lat         Float?
+  lng         Float?
+  phone       String?
+  email       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  staff       User[]      @relation("StaffTerminal")
+  lockers     Locker[]
+  couriers    Courier[]
+  packages    Package[]   @relation("TerminalPackages")
+  routes      Route[]
+  alerts      Alert[]
+
+  @@map("terminals")
+}
+
+model Locker {
+  id            String       @id @default(uuid())
+  terminalId    String
+  terminal      Terminal     @relation(fields: [terminalId], references: [id])
+  serialNo      String       @unique
+  name          String
+  location      String?
+  size          LockerSize
+  status        LockerStatus @default(available)
+  compartmentNo Int
+  winnsenSn     String?
+  doorNo        Int?
+  currentPackageId String?   @unique
+  currentPackage   Package?  @relation("CurrentLocker", fields: [currentPackageId], references: [id])
+  isActive      Boolean      @default(true)
+  lastPingAt    DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  events        LockerEvent[]
+  packages      Package[]   @relation("PackageHistory")
+
+  @@map("lockers")
+}
+
+model LockerEvent {
+  id          String   @id @default(uuid())
+  lockerId    String
+  locker      Locker   @relation(fields: [lockerId], references: [id])
+  eventType   String
+  triggeredBy String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@map("locker_events")
+}
+
+// ── Packages ──────────────────────────────────────────────────────────────────
+
+model Package {
+  id              String          @id @default(uuid())
+  waybill         String          @unique
+  status          PackageStatus   @default(pending)
+  deliveryMethod  DeliveryMethod  @default(warehouse_to_locker)
+  size            PackageSize     @default(M)
+  description     String?
+  notes           String?
+  weight          Float?
+
+  // Sender
+  senderName      String
+  senderPhone     String
+  senderAddress   String?
+
+  // Recipient
+  recipientName   String
+  recipientPhone  String
+  recipientEmail  String?
+
+  // Winnsen locker assignment
+  pickupCode      String?
+  lockerDoorNo    Int?
+
+  // Pricing
+  price           Float           @default(0)
+  currency        String          @default("GHS")
+  isPaid          Boolean         @default(false)
+  paymentMethod   PaymentMethod?
+
+  // Assignment
+  terminalId      String
+  terminal        Terminal        @relation("TerminalPackages", fields: [terminalId], references: [id])
+  courierId       String?
+  courier         Courier?        @relation(fields: [courierId], references: [id])
+  lockerId        String?
+  locker          Locker?         @relation("PackageHistory", fields: [lockerId], references: [id])
+  currentLockerId Locker?         @relation("CurrentLocker")
+
+  // SLA
+  slaDeadline     DateTime?
+  pickedUpAt      DateTime?
+  deliveredAt     DateTime?
+  expiresAt       DateTime?
+
+  // Customer link
+  customerId      String?
+  customer        Customer?       @relation(fields: [customerId], references: [id])
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  timeline        PackageTimeline[]
+  proofOfDelivery ProofOfDelivery?
+  exceptions      Exception[]
+  tasks           Task[]
+
+  @@map("packages")
+}
+
+model PackageTimeline {
+  id          String        @id @default(uuid())
+  packageId   String
+  package     Package       @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  status      PackageStatus
+  description String?
+  actorId     String?
+  actorName   String?
+  metadata    Json?
+  createdAt   DateTime      @default(now())
+
+  @@map("package_timeline")
+}
+
+// ── Couriers ──────────────────────────────────────────────────────────────────
+
+model Courier {
+  id              String        @id @default(uuid())
+  userId          String        @unique
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employeeId      String?       @unique
+  terminalId      String
+  terminal        Terminal      @relation(fields: [terminalId], references: [id])
+  team            String?
+  status          CourierStatus @default(active)
+  cardNo          String?       @unique
+  qrCode          String?       @unique
+  vehicleId       String?       @unique
+  vehicle         Vehicle?      @relation(fields: [vehicleId], references: [id])
+  totalDeliveries Int           @default(0)
+  successRate     Float         @default(0)
+  rating          Float         @default(0)
+  joinDate        DateTime      @default(now())
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  tasks           Task[]
+  shifts          Shift[]
+  earnings        Earning[]
+  packages        Package[]
+
+  @@map("couriers")
+}
+
+// ── Drivers ───────────────────────────────────────────────────────────────────
+
+model Driver {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employeeId      String?  @unique
+  licenseNo       String?  @unique
+  licenseExpiry   DateTime?
+  vehicleId       String?
+  totalTrips      Int      @default(0)
+  joinDate        DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("drivers")
+}
+
+// ── Fleet / Vehicles ──────────────────────────────────────────────────────────
+
+model Vehicle {
+  id              String        @id @default(uuid())
+  plateNo         String        @unique
+  make            String
+  model           String
+  year            Int
+  type            VehicleType
+  status          VehicleStatus @default(active)
+  mileage         Int           @default(0)
+  fuelType        String        @default("petrol")
+  lastServiceDate DateTime?
+  nextServiceDate DateTime?
+  insuranceExpiry DateTime?
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  courier         Courier?
+
+  @@map("vehicles")
+}
+
+// ── Routes ────────────────────────────────────────────────────────────────────
+
+model Route {
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique
+  terminalId  String
+  terminal    Terminal @relation(fields: [terminalId], references: [id])
+  description String?
+  estimatedDurationMins Int?
+  distanceKm  Float?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  stops       RouteStop[]
+
+  @@map("routes")
+}
+
+model RouteStop {
+  id          String   @id @default(uuid())
+  routeId     String
+  route       Route    @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  name        String
+  address     String
+  sequence    Int
+  lat         Float?
+  lng         Float?
+
+  @@map("route_stops")
+}
+
+// ── Shifts ────────────────────────────────────────────────────────────────────
+
+model Shift {
+  id          String      @id @default(uuid())
+  courierId   String
+  courier     Courier     @relation(fields: [courierId], references: [id])
+  date        DateTime    @db.Date
+  startTime   DateTime?
+  endTime     DateTime?
+  status      ShiftStatus @default(scheduled)
+  hoursWorked Float?
+  notes       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  tasks       Task[]
+
+  @@map("shifts")
+}
+
+// ── Tasks ─────────────────────────────────────────────────────────────────────
+
+model Task {
+  id          String     @id @default(uuid())
+  courierId   String
+  courier     Courier    @relation(fields: [courierId], references: [id])
+  packageId   String
+  package     Package    @relation(fields: [packageId], references: [id])
+  shiftId     String?
+  shift       Shift?     @relation(fields: [shiftId], references: [id])
+  status      TaskStatus @default(assigned)
+  assignedAt  DateTime   @default(now())
+  acceptedAt  DateTime?
+  completedAt DateTime?
+  failedAt    DateTime?
+  failReason  String?
+  notes       String?
+
+  @@map("tasks")
+}
+
+// ── Earnings ──────────────────────────────────────────────────────────────────
+
+model Earning {
+  id            String   @id @default(uuid())
+  courierId     String
+  courier       Courier  @relation(fields: [courierId], references: [id])
+  periodStart   DateTime @db.Date
+  periodEnd     DateTime @db.Date
+  deliveries    Int      @default(0)
+  baseAmount    Float    @default(0)
+  bonus         Float    @default(0)
+  deductions    Float    @default(0)
+  totalAmount   Float    @default(0)
+  currency      String   @default("GHS")
+  isPaid        Boolean  @default(false)
+  paidAt        DateTime?
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  @@map("earnings")
+}
+
+// ── Proof of Delivery ─────────────────────────────────────────────────────────
+
+model ProofOfDelivery {
+  id          String   @id @default(uuid())
+  packageId   String   @unique
+  package     Package  @relation(fields: [packageId], references: [id])
+  photoUrl    String?
+  signature   String?
+  barcodeScan String?
+  lat         Float?
+  lng         Float?
+  notes       String?
+  submittedBy String?
+  submittedAt DateTime @default(now())
+
+  @@map("proof_of_delivery")
+}
+
+// ── Exceptions ────────────────────────────────────────────────────────────────
+
+model Exception {
+  id          String          @id @default(uuid())
+  packageId   String
+  package     Package         @relation(fields: [packageId], references: [id])
+  type        ExceptionType
+  status      ExceptionStatus @default(open)
+  description String
+  reportedBy  String?
+  assignedTo  String?
+  resolvedBy  String?
+  resolvedAt  DateTime?
+  resolution  String?
+  metadata    Json?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@map("exceptions")
+}
+
+// ── Customers ─────────────────────────────────────────────────────────────────
+
+model Customer {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName String?
+  businessName String?
+  isEnterprise Boolean @default(false)
+  kycVerified Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  addresses   CustomerAddress[]
+  wallet      Wallet?
+  packages    Package[]
+  subscriptions Subscription[]
+  rewardPoints RewardPoint[]
+  payments    Payment[]
+  contacts    CrmContact[]
+
+  @@map("customers")
+}
+
+model CustomerAddress {
+  id          String   @id @default(uuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  label       String
+  address     String
+  city        String
+  region      String
+  lat         Float?
+  lng         Float?
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@map("customer_addresses")
+}
+
+// ── Wallet & Payments ─────────────────────────────────────────────────────────
+
+model Wallet {
+  id          String   @id @default(uuid())
+  customerId  String   @unique
+  customer    Customer @relation(fields: [customerId], references: [id])
+  balance     Float    @default(0)
+  currency    String   @default("GHS")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  transactions WalletTransaction[]
+
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id          String          @id @default(uuid())
+  walletId    String
+  wallet      Wallet          @relation(fields: [walletId], references: [id])
+  type        TransactionType
+  amount      Float
+  balance     Float
+  description String?
+  reference   String?         @unique
+  metadata    Json?
+  createdAt   DateTime        @default(now())
+
+  @@map("wallet_transactions")
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  customerId      String
+  customer        Customer      @relation(fields: [customerId], references: [id])
+  method          PaymentMethod
+  status          PaymentStatus @default(pending)
+  amount          Float
+  currency        String        @default("GHS")
+  reference       String        @unique
+  externalRef     String?
+  description     String?
+  metadata        Json?
+  completedAt     DateTime?
+  failedAt        DateTime?
+  failReason      String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("payments")
+}
+
+// ── Subscriptions & Rewards ───────────────────────────────────────────────────
+
+model SubscriptionPlan {
+  id              String   @id @default(uuid())
+  name            String   @unique
+  description     String?
+  price           Float
+  currency        String   @default("GHS")
+  billingCycleDays Int     @default(30)
+  storageLimitGb  Float    @default(1)
+  maxPackages     Int      @default(10)
+  features        Json?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  subscriptions   Subscription[]
+
+  @@map("subscription_plans")
+}
+
+model Subscription {
+  id          String             @id @default(uuid())
+  customerId  String
+  customer    Customer           @relation(fields: [customerId], references: [id])
+  planId      String
+  plan        SubscriptionPlan   @relation(fields: [planId], references: [id])
+  status      SubscriptionStatus @default(trial)
+  startDate   DateTime
+  endDate     DateTime?
+  autoRenew   Boolean            @default(true)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@map("subscriptions")
+}
+
+model RewardPoint {
+  id          String   @id @default(uuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id])
+  points      Int      @default(0)
+  action      String
+  description String?
+  expiresAt   DateTime?
+  redeemedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@map("reward_points")
+}
+
+// ── Notifications ─────────────────────────────────────────────────────────────
+
+model NotificationTemplate {
+  id          String              @id @default(uuid())
+  name        String              @unique
+  channel     NotificationChannel
+  subject     String?
+  body        String
+  variables   Json?
+  isActive    Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  logs        NotificationLog[]
+
+  @@map("notification_templates")
+}
+
+model NotificationLog {
+  id          String              @id @default(uuid())
+  templateId  String?
+  template    NotificationTemplate? @relation(fields: [templateId], references: [id])
+  channel     NotificationChannel
+  recipient   String
+  subject     String?
+  body        String
+  status      String              @default("pending")
+  externalId  String?
+  error       String?
+  sentAt      DateTime?
+  createdAt   DateTime            @default(now())
+
+  @@map("notification_logs")
+}
+
+// ── Messaging / Chat ──────────────────────────────────────────────────────────
+
+model ChatThread {
+  id          String   @id @default(uuid())
+  packageId   String?
+  subject     String?
+  participants Json
+  isResolved  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  messages    ChatMessage[]
+
+  @@map("chat_threads")
+}
+
+model ChatMessage {
+  id          String     @id @default(uuid())
+  threadId    String
+  thread      ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  senderId    String
+  senderName  String
+  senderType  String
+  body        String
+  attachments Json?
+  readAt      DateTime?
+  createdAt   DateTime   @default(now())
+
+  @@map("chat_messages")
+}
+
+// ── Alerts ────────────────────────────────────────────────────────────────────
+
+model Alert {
+  id          String        @id @default(uuid())
+  terminalId  String?
+  terminal    Terminal?     @relation(fields: [terminalId], references: [id])
+  severity    AlertSeverity @default(info)
+  title       String
+  message     String
+  type        String
+  metadata    Json?
+  isRead      Boolean       @default(false)
+  resolvedAt  DateTime?
+  createdAt   DateTime      @default(now())
+
+  @@map("alerts")
+}
+
+// ── Bulk Shipments & Partners ─────────────────────────────────────────────────
+
+model BulkShipment {
+  id          String             @id @default(uuid())
+  reference   String             @unique
+  customerId  String?
+  customerName String
+  status      BulkShipmentStatus @default(draft)
+  totalItems  Int                @default(0)
+  processedItems Int             @default(0)
+  failedItems Int                @default(0)
+  fileUrl     String?
+  errors      Json?
+  submittedAt DateTime?
+  completedAt DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@map("bulk_shipments")
+}
+
+model PartnerApiKey {
+  id          String   @id @default(uuid())
+  customerId  String
+  name        String
+  keyHash     String   @unique
+  keyPrefix   String
+  permissions Json
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@map("partner_api_keys")
+}
+
+model Webhook {
+  id          String        @id @default(uuid())
+  customerId  String
+  url         String
+  events      WebhookEvent[]
+  secret      String
+  isActive    Boolean       @default(true)
+  failCount   Int           @default(0)
+  lastTriggeredAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  logs        WebhookLog[]
+
+  @@map("webhooks")
+}
+
+model WebhookLog {
+  id          String   @id @default(uuid())
+  webhookId   String
+  webhook     Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  event       WebhookEvent
+  payload     Json
+  statusCode  Int?
+  response    String?
+  error       String?
+  duration    Int?
+  createdAt   DateTime @default(now())
+
+  @@map("webhook_logs")
+}
+
+// ── HRIS ─────────────────────────────────────────────────────────────────────
+
+model OnboardingRecord {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id])
+  startDate       DateTime @db.Date
+  hiredBy         String?
+  checklist       Json     @default("{}")
+  accessSetup     Json     @default("{}")
+  isComplete      Boolean  @default(false)
+  completedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  documents       HrisDocument[]
+
+  @@map("onboarding_records")
+}
+
+model OffboardingRecord {
+  id              String            @id @default(uuid())
+  userId          String            @unique
+  user            User              @relation(fields: [userId], references: [id])
+  exitDate        DateTime          @db.Date
+  exitType        ExitType
+  status          OffboardingStatus @default(in_progress)
+  initiatedBy     String?
+  checklist       Json              @default("{}")
+  exitInterview   Json              @default("{}")
+  settlement      Json              @default("{}")
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@map("offboarding_records")
+}
+
+model HrisDocument {
+  id                String              @id @default(uuid())
+  onboardingId      String
+  onboarding        OnboardingRecord    @relation(fields: [onboardingId], references: [id], onDelete: Cascade)
+  docType           String
+  status            OnboardingDocStatus @default(pending)
+  fileUrl           String?
+  uploadedAt        DateTime?
+  verifiedAt        DateTime?
+  createdAt         DateTime            @default(now())
+
+  @@map("hris_documents")
+}
+
+model AlumniRecord {
+  id            String              @id @default(uuid())
+  name          String
+  email         String?
+  phone         String?
+  role          String
+  team          String?
+  terminal      String?
+  joinDate      DateTime?           @db.Date
+  exitDate      DateTime            @db.Date
+  exitType      ExitType
+  exitReason    ExitReasonCategory?
+  rehireEligible Boolean           @default(false)
+  notes         String?
+  createdAt     DateTime            @default(now())
+
+  @@map("alumni_records")
+}
+
+// ── Payroll ───────────────────────────────────────────────────────────────────
+
+model SalaryConfig {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  baseSalary      Float
+  transportAllowance Float  @default(0)
+  housingAllowance Float    @default(0)
+  otherAllowances Float     @default(0)
+  currency        String   @default("GHS")
+  effectiveFrom   DateTime @db.Date
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("salary_configs")
+}
+
+model PayPeriod {
+  id          String          @id @default(uuid())
+  label       String
+  startDate   DateTime        @db.Date
+  endDate     DateTime        @db.Date
+  status      PayPeriodStatus @default(draft)
+  processedAt DateTime?
+  approvedAt  DateTime?
+  approvedBy  String?
+  paidAt      DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  records     PayrollRecord[]
+
+  @@map("pay_periods")
+}
+
+model PayrollRecord {
+  id              String    @id @default(uuid())
+  periodId        String
+  period          PayPeriod @relation(fields: [periodId], references: [id])
+  userId          String
+  employeeName    String
+  role            String
+  department      String?
+  baseSalary      Float
+  transportAllowance Float  @default(0)
+  housingAllowance Float    @default(0)
+  otherAllowances Float     @default(0)
+  grossSalary     Float
+  ssnitEmployee   Float
+  ssnitEmployer   Float
+  incomeTax       Float
+  otherDeductions Float     @default(0)
+  bonuses         Float     @default(0)
+  netSalary       Float
+  currency        String    @default("GHS")
+  paymentMethod   String    @default("bank_transfer")
+  bankAccount     String?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("payroll_records")
+}
+
+// ── CRM Contacts ──────────────────────────────────────────────────────────────
+
+model CrmContact {
+  id          String   @id @default(uuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id])
+  name        String
+  email       String?
+  phone       String?
+  role        String?
+  isPrimary   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@map("crm_contacts")
+}
+
+// ── Newsletter ────────────────────────────────────────────────────────────────
+
+model NewsletterSubscriber {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  name        String?
+  isActive    Boolean  @default(true)
+  source      String?
+  subscribedAt DateTime @default(now())
+  unsubscribedAt DateTime?
+
+  @@map("newsletter_subscribers")
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+
+model SystemSetting {
+  key         String   @id
+  value       Json
+  description String?
+  updatedBy   String?
+  updatedAt   DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
+model PricingRule {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  size        PackageSize?
+  deliveryMethod DeliveryMethod?
+  basePrice   Float
+  perKgPrice  Float?
+  minPrice    Float?
+  maxPrice    Float?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("pricing_rules")
+}
+
+model SlaRule {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  deliveryMethod DeliveryMethod?
+  targetHours Int
+  maxHours    Int
+  penalty     Float?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("sla_rules")
+}
+
+// ── Audit Log ─────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  action      String
+  resource    String
+  resourceId  String?
+  before      Json?
+  after       Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@map("audit_logs")
+}

@@ -1,0 +1,24 @@
+{
+  "name": "locqar",
+  "private": true,
+  "version": "1.0.0",
+  "description": "LocQar Smart Locker Platform",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:admin": "npm run dev -w @locqar/admin-portal",
+    "dev:courier": "npm run dev -w @locqar/courier-app",
+    "dev:customer": "npm run dev -w @locqar/customer-app",
+    "dev:terminal": "npm run dev -w @locqar/terminal-app",
+    "dev:website": "npm run dev -w @locqar/website",
+    "dev:api": "npm run dev -w @locqar/api",
+    "build:api": "npm run build -w @locqar/api",
+    "build:all": "npm run build -ws --if-present",
+    "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
