@@ -1,11 +1,11 @@
 /**
- * Winnsen Integration — two surfaces:
+ * Winnsen Integration â two surfaces:
  *
- * 1. POST /api/winnsen/events      — kiosk hardware calls us directly
+ * 1. POST /api/winnsen/events      â kiosk hardware calls us directly
  *    Auth: x-api-key: WINNSEN_INBOUND_API_KEY
  *    Body: { action, ...params }
  *
- * 2. GET/POST /api/winnsen/callbacks/*  — Winnsen cloud calls us after locker events
+ * 2. GET/POST /api/winnsen/callbacks/*  â Winnsen cloud calls us after locker events
  *    No auth (Winnsen doesn't send headers); security by obscurity is the standard pattern.
  *
  * Winnsen Cloud API (we call them) lives in src/shared/services/winnsen.cloud.ts
@@ -17,10 +17,11 @@ import { config } from '../../config';
 import { verifyPassword } from '../../shared/utils/crypto';
 import { eventBus } from '../../shared/events/eventBus';
 import { logger } from '../../shared/utils/logger';
+import { doorClient } from '@locqar/door-controller/src/client';
 
 const router = Router();
 
-// ── Inbound API key auth ──────────────────────────────────────────────────────
+// ââ Inbound API key auth ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 function requireInboundKey(req: Request, res: Response, next: NextFunction): void {
   const key = req.headers['x-api-key'];
@@ -31,16 +32,16 @@ function requireInboundKey(req: Request, res: Response, next: NextFunction): voi
   next();
 }
 
-// ── Helper: find locker by Winnsen SN ────────────────────────────────────────
+// ââ Helper: find locker by Winnsen SN ââââââââââââââââââââââââââââââââââââââââ
 
 async function lockerBySN(sn: string) {
   return prisma.locker.findFirst({ where: { winnsenSn: sn } });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 // POST /api/winnsen/events
-// Kiosk touchscreen hardware → our server (direct, not via Winnsen cloud)
-// ─────────────────────────────────────────────────────────────────────────────
+// Kiosk touchscreen hardware â our server (direct, not via Winnsen cloud)
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 router.post('/events', requireInboundKey, async (req: Request, res: Response, next: NextFunction) => {
   const { action, ...body } = req.body as Record<string, string>;
@@ -49,7 +50,7 @@ router.post('/events', requireInboundKey, async (req: Request, res: Response, ne
   try {
     switch (action) {
 
-      // ── Agent (courier) login at kiosk ──────────────────────────────────────
+      // ââ Agent (courier) login at kiosk ââââââââââââââââââââââââââââââââââââââ
 
       case 'agent-login-by-phone': {
         const { phone, password } = body;
@@ -76,7 +77,7 @@ router.post('/events', requireInboundKey, async (req: Request, res: Response, ne
         return res.json({ agentId: courier.id });
       }
 
-      // ── Member (partner/customer) login at kiosk ────────────────────────────
+      // ââ Member (partner/customer) login at kiosk ââââââââââââââââââââââââââââ
 
       case 'member-login-by-phone': {
         const { phone, password } = body;
@@ -88,7 +89,7 @@ router.post('/events', requireInboundKey, async (req: Request, res: Response, ne
       }
 
       case 'member-login-by-qr': {
-        // qrToken = plain API key (hashed in DB — find by prefix match then full verify)
+        // qrToken = plain API key (hashed in DB â find by prefix match then full verify)
         const { qrToken } = body;
         if (!qrToken) return res.status(400).json({ Status: 'Fail', Message: 'qrToken required' });
         const prefix = qrToken.slice(0, 8);
@@ -99,7 +100,7 @@ router.post('/events', requireInboundKey, async (req: Request, res: Response, ne
         return res.json({ memberId: key.customerId });
       }
 
-      // ── Member package check ─────────────────────────────────────────────────
+      // ââ Member package check âââââââââââââââââââââââââââââââââââââââââââââââââ
 
       case 'member-package': {
         // "Does this member have a package waiting at this locker?"
@@ -107,7 +108,7 @@ router.post('/events', requireInboundKey, async (req: Request, res: Response, ne
         const locker = await lockerBySN(lockerSN);
         if (!locker) return res.json({ hasPackage: false });
 
-        // memberId can be a User.id or Customer.id — try both
+        // memberId can be a User.id or Customer.id â try both
         const pkg = await prisma.package.findFirst({
           where: {
             lockerId: locker.id,
@@ -125,7 +126,7 @@ router.post('/events', requireInboundKey, async (req: Request, res: Response, ne
         });
       }
 
-      // ── Agent order operations ───────────────────────────────────────────────
+      // ââ Agent order operations âââââââââââââââââââââââââââââââââââââââââââââââ
 
       case 'agent-validate-order': {
         const { orderNumber, lockerSN } = body;
@@ -178,7 +179,7 @@ router.post('/events', requireInboundKey, async (req: Request, res: Response, ne
         return res.json({ Status: matches ? 'Success' : 'Fail', Message: matches ? '' : 'Locker mismatch' });
       }
 
-      // ── Physical locker events (door closed after drop/collect) ─────────────
+      // ââ Physical locker events (door closed after drop/collect) âââââââââââââ
 
       case 'order-dropoff': {
         // Package placed in locker, door closed
@@ -256,7 +257,7 @@ router.post('/events', requireInboundKey, async (req: Request, res: Response, ne
         return res.json({ Status: 'Success', Message: '' });
       }
 
-      // ── Payment at kiosk ─────────────────────────────────────────────────────
+      // ââ Payment at kiosk âââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
       case 'order-payment': {
         // "Has this order been paid for?"
@@ -284,6 +285,85 @@ router.post('/events', requireInboundKey, async (req: Request, res: Response, ne
         return res.json({ url, expiredAt, orderNumber });
       }
 
+
+      // ── Local door control (replaces Winnsen cloud SetDoorOpen) ──────────
+      case 'open-door': {
+        const { doorNumber, lockerSN } = body;
+        if (!doorNumber) {
+          return res.status(400).json({ Status: 'Fail', Message: 'doorNumber required' });
+        }
+        const result = await doorClient.openDoor(Number(doorNumber));
+        logger.info(`[Winnsen/local] open-door door=${doorNumber} success=${result.success}`);
+        return res.json({
+          Status: result.success ? 'Success' : 'Fail',
+          Message: result.error || '',
+          door: result.door,
+        });
+      }
+
+      // ── Local door status (replaces Winnsen cloud GetTerminalInfo) ───────
+      case 'door-status': {
+        const { doorNumber: dn, station: st } = body;
+        if (dn) {
+          const result = await doorClient.getDoorStatus(Number(dn));
+          return res.json({ Status: result.success ? 'Success' : 'Fail', door: result.door, doorStatus: result.status });
+        }
+        if (st) {
+          const result = await doorClient.getStationStatus(Number(st));
+          return res.json({ Status: 'Success', doors: result.doors });
+        }
+        return res.status(400).json({ Status: 'Fail', Message: 'doorNumber or station required' });
+      }
+
+      // ── Verify pickup code + open door (full local flow) ────────────────
+      case 'verify-pickup-code': {
+        const { code } = body;
+        if (!code) {
+          return res.status(400).json({ Status: 'Fail', Message: 'code required' });
+        }
+        const pkg = await prisma.package.findFirst({
+          where: { pickupCode: code, status: 'delivered_to_locker' },
+          select: { id: true, waybill: true, lockerDoorNo: true, lockerId: true },
+        });
+        if (!pkg) {
+          return res.status(401).json({ Status: 'Fail', Message: 'Invalid or expired code' });
+        }
+        if (!pkg.lockerDoorNo) {
+          return res.status(400).json({ Status: 'Fail', Message: 'No door assigned to this package' });
+        }
+        const openResult = await doorClient.openDoor(pkg.lockerDoorNo);
+        if (!openResult.success) {
+          logger.error(`[Winnsen/local] Failed to open door ${pkg.lockerDoorNo} for pickup code ${code}`);
+          return res.status(500).json({ Status: 'Fail', Message: 'Door failed to open' });
+        }
+        logger.info(`[Winnsen/local] verify-pickup-code code=${code} waybill=${pkg.waybill} door=${pkg.lockerDoorNo}`);
+        return res.json({
+          Status: 'Success',
+          waybill: pkg.waybill,
+          doorNumber: pkg.lockerDoorNo,
+          message: 'Door opened. Please collect your package.',
+        });
+      }
+
+      // ── Generate pickup code locally (replaces Winnsen cloud SetPinCode) ─
+      case 'generate-pickup-code': {
+        const { orderNumber: on } = body;
+        if (!on) {
+          return res.status(400).json({ Status: 'Fail', Message: 'orderNumber required' });
+        }
+        const pickupCode = String(Math.floor(100000 + Math.random() * 900000));
+        const updated = await prisma.package.updateMany({
+          where: { waybill: on },
+          data: { pickupCode },
+        });
+        if (updated.count === 0) {
+          return res.status(404).json({ Status: 'Fail', Message: 'Order not found' });
+        }
+        logger.info(`[Winnsen/local] generate-pickup-code waybill=${on} code=${pickupCode}`);
+        return res.json({ Status: 'Success', pickupCode, orderNumber: on });
+      }
+
+
       default:
         return res.status(400).json({ Status: 'Fail', Message: `Unknown action: ${action}` });
     }
@@ -292,11 +372,11 @@ router.post('/events', requireInboundKey, async (req: Request, res: Response, ne
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Winnsen Cloud callbacks — Winnsen calls these after locker events
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Winnsen Cloud callbacks â Winnsen calls these after locker events
 // Mounted at /api/winnsen/callbacks/*
 // Winnsen uses GET with query-string params for most callbacks
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 const cb = Router();
 
@@ -309,7 +389,7 @@ cb.get('/check-courier', async (req: Request, res: Response, next: NextFunction)
     let courierName: string | undefined;
 
     if (type === '2' && card) {
-      // Card-based — look up by cardNo
+      // Card-based â look up by cardNo
       const courier = await prisma.courier.findFirst({
         where: { cardNo: card },
         include: { user: { select: { name: true } } },
@@ -353,7 +433,7 @@ cb.get('/check-parcel', async (req: Request, res: Response, next: NextFunction) 
       return res.json({ Status: 'Fail', Data: [], Message: 'Waybill not found' });
     }
 
-    // Strip country code (+233 → 0...) — Winnsen expects local format
+    // Strip country code (+233 â 0...) â Winnsen expects local format
     const phone = pkg.recipientPhone?.replace(/^\+233/, '0') ?? '';
     return res.json({ Status: 'Success', Data: [{ Phone: phone }], Message: '' });
   } catch (err) { next(err); }
