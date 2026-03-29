@@ -11,3 +11,4 @@ _backups/
 *.png
 apps/api/uploads/**
 !apps/api/uploads/**/.gitkeep
+.github/workflows/
