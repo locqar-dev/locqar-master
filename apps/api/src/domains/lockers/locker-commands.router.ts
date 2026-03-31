@@ -57,7 +57,7 @@ function generateId(): string {
 const LOCKER_API_KEY = process.env.LOCKER_API_KEY || config.winnsen.inboundApiKey;
 
 function requireApiKey(req: Request, res: Response, next: NextFunction): void {
-  const key = req.headers['x-api-key'];
+  const key = req.headers['x-api-key'] as string | undefined;
   if (!key || key !== LOCKER_API_KEY) {
     res.status(401).json({ success: false, message: 'Invalid API key' });
     return;
@@ -156,7 +156,7 @@ router.get('/commands', (req: Request, res: Response) => {
 // Kiosk reports back after executing.
 
 router.post('/commands/:id/ack', (req: Request, res: Response) => {
-  const cmd = commands.get(req.params.id);
+  const cmd = commands.get(String(req.params.id));
   if (!cmd) {
     return res.status(404).json({ success: false, message: 'Command not found' });
   }
@@ -181,7 +181,7 @@ router.post('/commands/:id/ack', (req: Request, res: Response) => {
 // Check status of a specific command (test page polls this).
 
 router.get('/commands/:id', (req: Request, res: Response) => {
-  const cmd = commands.get(req.params.id);
+  const cmd = commands.get(String(req.params.id));
   if (!cmd) {
     return res.status(404).json({ success: false, message: 'Command not found' });
   }
