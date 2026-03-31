@@ -17,6 +17,7 @@ import { config } from '../../config';
 import { verifyPassword } from '../../shared/utils/crypto';
 import { eventBus } from '../../shared/events/eventBus';
 import { logger } from '../../shared/utils/logger';
+// @ts-ignore - door-controller is a JS package without type declarations
 import { doorClient } from '@locqar/door-controller/src/client';
 
 const router = Router();
