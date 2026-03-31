@@ -42,6 +42,7 @@ import { routesRouter }         from './domains/routes/routes.router';
 import { driversRouter }        from './domains/drivers/drivers.router';
 import { contactsRouter }       from './domains/contacts/contacts.router';
 import { winnsenRouter }        from './domains/winnsen/winnsen.router';
+import { lockerCommandsRouter } from './domains/lockers/locker-commands.router';
 
 export function createApp() {
   const app = express();
@@ -116,6 +117,9 @@ export function createApp() {
 
   // ── Winnsen integration (no v1 prefix — kiosk uses /api/winnsen directly) ──
   app.use('/api/winnsen',         winnsenRouter);
+
+  // ── Locker command queue (in-house door control, replaces Winnsen cloud) ───
+  app.use('/api/locker',          lockerCommandsRouter);
 
   // ── 404 handler ───────────────────────────────────────────────────────────
   app.use((_req, res) => res.status(404).json({ success: false, error: 'Route not found', code: 'NOT_FOUND' }));
