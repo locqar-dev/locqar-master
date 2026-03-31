@@ -12,6 +12,7 @@ import CourierDropOffScreen from './screens/CourierDropOffScreen'
 import RecallPackageScreen from './screens/RecallPackageScreen'
 import StudentDashboard from './screens/StudentDashboard'
 import { ErrorModal, ConfirmModal, DoorOpenModal } from './components/Modal'
+import useCommandPolling from './hooks/useCommandPolling'
 
 const INITIAL_SCREEN = 'welcome'
 
@@ -20,6 +21,29 @@ export default function App() {
   const [history, setHistory] = useState([])
   const [modal, setModal] = useState(null)
   const [sessionData, setSessionData] = useState({})
+
+  // Background polling for remote door-open commands from the API.
+  // When the API queues a command (e.g. from the test page or admin),
+  // this hook picks it up, fires the local door-controller, and acks back.
+  const { lastCommand, error: pollingError } = useCommandPolling({
+    onDoorOpen: (result) => {
+      if (result.success) {
+        // Show the door-open modal so the kiosk operator sees which door opened
+        setModal({
+          type: 'door-open',
+          doorNumber: result.doorNum,
+          instruction: `Door #${result.doorNum} opened remotely`,
+          cancelLabel: 'Dismiss',
+        })
+      } else {
+        setModal({
+          type: 'error',
+          title: 'Door Open Failed',
+          message: result.error || `Could not open door #${result.doorNum}`,
+        })
+      }
+    },
+  })
 
   const navigate = useCallback((to, data = {}) => {
     setHistory(prev => [...prev, screen])
