@@ -23,7 +23,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install --ignore-scripts
+        run: npm ci --ignore-scripts
 
       # ── Build Admin Portal ────────────────────────────────────────────────
       - name: Build Admin Portal
@@ -37,10 +37,6 @@ jobs:
       - name: Build Courier App
         run: npm run build -w @locqar/courier-app -- --base=/locqar-master/courier/
 
-      # ── Build Terminal App (Kiosk) ──────────────────────────────────────────
-      - name: Build Terminal App
-        run: npm run build -w @locqar/terminal-app -- --base=/locqar-master/kiosk/
-
       # ── Combine all builds into one deploy folder ─────────────────────────
       - name: Combine builds
         run: |
@@ -49,7 +45,9 @@ jobs:
           cp -r apps/admin-portal/dist/. deploy/admin/
           cp -r apps/customer-app/dist/.  deploy/customer/
           cp -r apps/courier-app/dist/.   deploy/courier/
-          cp -r apps/terminal-app/dist/.  deploy/kiosk/
+
+          # Kiosk — vanilla HTML (no build step, Chrome 37 compatible)
+          cp apps/terminal-app/kiosk.html deploy/kiosk/index.html
 
           # Root index — redirect to customer app
           cat > deploy/index.html << 'HTML'
@@ -64,7 +62,7 @@ jobs:
             <body>
               <div style="text-align:center">
                 <h2>LocQar Platform</h2>
-                <p><a href="customer/">Customer App</a> · <a href="admin/">Admin Portal</a> · <a href="courier/">Courier App</a></p>
+                <p><a href="customer/">Customer App</a> · <a href="admin/">Admin Portal</a> · <a href="courier/">Courier App</a> · <a href="kiosk/">Kiosk</a></p>
               </div>
             </body>
           </html>
