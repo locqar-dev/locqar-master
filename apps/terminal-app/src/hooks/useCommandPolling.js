@@ -18,8 +18,8 @@ import { getConfig } from '../services/config'
 
 const POLL_INTERVAL_MS = 2500 // 2.5 seconds
 
-export default function useCommandPolling({ onDoorOpen } = {}) {
-  const [isPolling, setIsPolling] = useState(true)
+export default function useCommandPolling({ onDoorOpen, enabled = true } = {}) {
+  const [isPolling, setIsPolling] = useState(enabled)
   const [lastCommand, setLastCommand] = useState(null)
   const [error, setError] = useState(null)
   const intervalRef = useRef(null)
@@ -94,6 +94,11 @@ export default function useCommandPolling({ onDoorOpen } = {}) {
       processingRef.current = false
     }
   }, [processCommand])
+
+  // Sync external enabled flag
+  useEffect(() => {
+    setIsPolling(enabled)
+  }, [enabled])
 
   // Start/stop polling
   useEffect(() => {

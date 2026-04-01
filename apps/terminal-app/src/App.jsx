@@ -25,12 +25,12 @@ export default function App() {
   const [sessionData, setSessionData] = useState({})
 
   // Background polling for remote door-open commands from the API.
-  // When the API queues a command (e.g. from the test page or admin),
-  // this hook picks it up, fires the local door-controller, and acks back.
+  // Only polls when the kiosk has been configured (has lockerSN + apiKey).
+  const configured = isConfigured()
   const { lastCommand, error: pollingError } = useCommandPolling({
+    enabled: configured,
     onDoorOpen: (result) => {
       if (result.success) {
-        // Show the door-open modal so the kiosk operator sees which door opened
         setModal({
           type: 'door-open',
           doorNumber: result.doorNum,
@@ -181,8 +181,7 @@ export default function App() {
   }
 
   return (
-    <div className="h-screen w-screen relative overflow-hidden"
-         style={{ backgroundImage: 'url(/background.jpg)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+    <div className="h-screen w-screen relative overflow-hidden bg-slate-900">
       {renderScreen()}
       {renderModal()}
 
