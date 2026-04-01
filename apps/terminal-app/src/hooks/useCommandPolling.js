@@ -14,7 +14,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { pollCommands, ackCommand, openDoorLocal } from '../services/api'
-import { LOCKER_SN } from '../services/api'
+import { getConfig } from '../services/config'
 
 const POLL_INTERVAL_MS = 2500 // 2.5 seconds
 
@@ -71,7 +71,7 @@ export default function useCommandPolling({ onDoorOpen } = {}) {
     processingRef.current = true
 
     try {
-      const commands = await pollCommands(LOCKER_SN)
+      const commands = await pollCommands(getConfig().lockerSN)
 
       if (commands.length > 0) {
         console.log(`[CommandPolling] Received ${commands.length} command(s)`)

@@ -2,26 +2,23 @@
  * LocQar API Service
  * ==================
  * Handles all communication between the kiosk terminal-app and the LocQar API.
- *
- * Environment variables (set in .env or at build time):
- *   VITE_API_URL        - LocQar API base URL (default: http://localhost:3000)
- *   VITE_LOCKER_API_KEY - API key for /api/locker endpoints
- *   VITE_LOCKER_SN      - This kiosk's locker serial number (e.g. "LQ-001")
+ * Reads configuration from the config store (localStorage + env overrides).
  */
 
-const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/+$/, '')
-const LOCKER_API_KEY = import.meta.env.VITE_LOCKER_API_KEY || ''
-const LOCKER_SN = import.meta.env.VITE_LOCKER_SN || 'LQ-001'
+import { getConfig } from './config'
+
+function cfg() { return getConfig() }
 
 /**
  * Generic fetch wrapper with API key auth.
  */
 async function request(method, path, body = null) {
-  const url = `${API_URL}${path}`
+  const { apiUrl, apiKey } = cfg()
+  const url = `${apiUrl.replace(/\/+$/, '')}${path}`
   const headers = { 'Content-Type': 'application/json' }
 
-  if (LOCKER_API_KEY) {
-    headers['x-api-key'] = LOCKER_API_KEY
+  if (apiKey) {
+    headers['x-api-key'] = apiKey
   }
 
   const opts = { method, headers }
@@ -42,10 +39,10 @@ async function request(method, path, body = null) {
 /**
  * Poll for pending commands for this kiosk.
  * GET /api/locker/commands?lockerSN=X
- * Returns an array of LockerCommand objects with status "processing".
  */
-export async function pollCommands(lockerSN = LOCKER_SN) {
-  return request('GET', `/api/locker/commands?lockerSN=${encodeURIComponent(lockerSN)}`)
+export async function pollCommands(lockerSN) {
+  const sn = lockerSN || cfg().lockerSN
+  return request('GET', `/api/locker/commands?lockerSN=${encodeURIComponent(sn)}`)
 }
 
 /**
@@ -68,14 +65,13 @@ export async function getCommandStatus(commandId) {
 
 // ─── Door Controller (local RS-485 bridge) ────────────────────
 
-const DOOR_CONTROLLER_URL = (import.meta.env.VITE_DOOR_CONTROLLER_URL || 'http://127.0.0.1:9090').replace(/\/+$/, '')
-
 /**
  * Open a physical door via the local door controller service.
  * POST http://127.0.0.1:9090/door/open  { door: N }
  */
 export async function openDoorLocal(doorNum) {
-  const url = `${DOOR_CONTROLLER_URL}/door/open`
+  const { doorControllerUrl } = cfg()
+  const url = `${doorControllerUrl.replace(/\/+$/, '')}/door/open`
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -92,9 +88,23 @@ export async function openDoorLocal(doorNum) {
  * Health-check the local door controller.
  */
 export async function doorControllerHealth() {
-  const url = `${DOOR_CONTROLLER_URL}/health`
+  const { doorControllerUrl } = cfg()
+  const url = `${doorControllerUrl.replace(/\/+$/, '')}/health`
   const res = await fetch(url)
   return res.json()
 }
 
-export { API_URL, LOCKER_API_KEY, LOCKER_SN, DOOR_CONTROLLER_URL }
+/**
+ * Test API connectivity (health check).
+ */
+export async function apiHealthCheck() {
+  const { apiUrl } = cfg()
+  const res = await fetch(`${apiUrl.replace(/\/+$/, '')}/health`)
+  return res.ok
+}
+
+// Legacy exports for backward compat
+export const API_URL = cfg().apiUrl
+export const LOCKER_API_KEY = cfg().apiKey
+export const LOCKER_SN = cfg().lockerSN
+export const DOOR_CONTROLLER_URL = cfg().doorControllerUrl
