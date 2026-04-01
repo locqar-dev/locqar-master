@@ -37,14 +37,19 @@ jobs:
       - name: Build Courier App
         run: npm run build -w @locqar/courier-app -- --base=/locqar-master/courier/
 
+      # ── Build Terminal App (Kiosk) ──────────────────────────────────────────
+      - name: Build Terminal App
+        run: npm run build -w @locqar/terminal-app -- --base=/locqar-master/kiosk/
+
       # ── Combine all builds into one deploy folder ─────────────────────────
       - name: Combine builds
         run: |
-          mkdir -p deploy/admin deploy/customer deploy/courier
+          mkdir -p deploy/admin deploy/customer deploy/courier deploy/kiosk
 
           cp -r apps/admin-portal/dist/. deploy/admin/
           cp -r apps/customer-app/dist/.  deploy/customer/
           cp -r apps/courier-app/dist/.   deploy/courier/
+          cp -r apps/terminal-app/dist/.  deploy/kiosk/
 
           # Root index — redirect to customer app
           cat > deploy/index.html << 'HTML'
