@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import WelcomeScreen from './screens/WelcomeScreen'
 import HomeScreen from './screens/HomeScreen'
 import PinEntryScreen from './screens/PinEntryScreen'
@@ -12,9 +12,13 @@ import CourierDropOffScreen from './screens/CourierDropOffScreen'
 import RecallPackageScreen from './screens/RecallPackageScreen'
 import StudentDashboard from './screens/StudentDashboard'
 import SetupScreen from './screens/SetupScreen'
+import AdminPasswordScreen from './screens/AdminPasswordScreen'
+import AdminLockerScreen from './screens/AdminLockerScreen'
+import StaffManagementScreen from './screens/StaffManagementScreen'
 import { ErrorModal, ConfirmModal, DoorOpenModal } from './components/Modal'
 import useCommandPolling from './hooks/useCommandPolling'
 import { isConfigured } from './services/config'
+import { startStaffSync, isSyncConfigured } from './services/staffSync'
 
 const INITIAL_SCREEN = isConfigured() ? 'welcome' : 'setup'
 
@@ -23,6 +27,11 @@ export default function App() {
   const [history, setHistory] = useState([])
   const [modal, setModal] = useState(null)
   const [sessionData, setSessionData] = useState({})
+
+  // Start staff sync on boot (pulls cloud staff → localStorage every 2 min)
+  useEffect(() => {
+    if (isSyncConfigured()) startStaffSync()
+  }, [])
 
   // Background polling for remote door-open commands from the API.
   // Only polls when the kiosk has been configured (has lockerSN + apiKey).
@@ -92,6 +101,7 @@ export default function App() {
             onPickUp={() => navigate('pickup-pin')}
             onStudentLogin={() => navigate('student-login')}
             onAgentLogin={() => navigate('courier-login')}
+            onAdmin={() => navigate('admin-password')}
           />
         )
       case 'dropoff-pin':
@@ -145,6 +155,18 @@ export default function App() {
         )
       case 'courier-view-packages':
         return <RecallPackageScreen onBack={goBack} onRecallDone={() => navigate('courier-dashboard')} />
+      case 'admin-password':
+        return <AdminPasswordScreen onSuccess={(staff) => navigate('admin-locker', { staff })} onBack={goBack} />
+      case 'admin-locker':
+        return (
+          <AdminLockerScreen
+            staff={sessionData.staff}
+            onBack={goHome}
+            onManageStaff={() => navigate('staff-management')}
+          />
+        )
+      case 'staff-management':
+        return <StaffManagementScreen currentStaff={sessionData.staff} onBack={goBack} />
       default:
         return <WelcomeScreen onNext={() => navigate('home')} />
     }

@@ -61,7 +61,7 @@ function BackButton({ onClick }) {
   return (
     <button
       onClick={onClick}
-      className="absolute top-8 left-8 z-10 w-14 h-14 flex items-center justify-center
+      className="absolute top-8 left-8 z-30 w-14 h-14 flex items-center justify-center
         rounded-full border border-white/20 text-white bg-white/10 backdrop-blur-sm
         hover:bg-white/20 active:scale-95 transition-all"
     >

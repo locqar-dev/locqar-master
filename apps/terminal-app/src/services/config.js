@@ -14,6 +14,8 @@ const DEFAULTS = {
   lockerSN: '',
   doorControllerUrl: 'http://127.0.0.1:9090',
   pollInterval: 2500,
+  deviceId: '',
+  deviceToken: '',
   configured: false,
 };
 
