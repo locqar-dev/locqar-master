@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>LocQar Kiosk</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;width:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f172a;color:#fff;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+.screen{position:absolute;top:0;left:0;width:100%;height:100%;display:none;flex-direction:column;align-items:center}
+.screen.active{display:-webkit-flex;display:flex}
+.logo{text-align:center;margin-top:12%}
+.logo-text{font-size:42px;font-weight:700;letter-spacing:6px;color:#fff}
+.logo-text span{color:#dc2626}
+.logo-sm .logo-text{font-size:28px;letter-spacing:4px}
+.logo-sm{margin-top:40px}
+
+/* Welcome */
+#welcome .title{font-size:40px;font-weight:700;letter-spacing:8px;text-transform:uppercase;margin-top:auto;margin-bottom:20px}
+#welcome .btn-next{margin-bottom:auto;margin-top:40px;padding:20px 80px;border-radius:16px;font-size:18px;font-weight:700;letter-spacing:4px;text-transform:uppercase;background:#dc2626;color:#fff;border:none;cursor:pointer}
+#welcome .btn-next:active{opacity:0.85;-webkit-transform:scale(0.97);transform:scale(0.97)}
+
+/* Home */
+.menu-btn{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;gap:20px;width:100%;max-width:440px;padding:22px 28px;border-radius:16px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.08);color:#fff;cursor:pointer;text-align:left;margin-bottom:12px}
+.menu-btn:active{background:rgba(255,255,255,0.16);-webkit-transform:scale(0.98);transform:scale(0.98)}
+.menu-icon{width:48px;height:48px;border-radius:12px;background:rgba(255,255,255,0.08);display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;font-size:22px}
+.menu-icon.red{background:rgba(185,28,28,0.25)}
+.menu-label{font-size:17px;font-weight:600}
+.menu-sub{font-size:13px;color:rgba(255,255,255,0.45);margin-top:4px}
+.bottom-links{position:absolute;bottom:12px;left:0;right:0;display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;padding:0 32px}
+.bottom-link{background:none;border:none;color:rgba(255,255,255,0.35);font-size:13px;font-weight:500;cursor:pointer;padding:10px 4px}
+.bottom-link:active{color:rgba(255,255,255,0.6)}
+
+/* PIN Entry */
+.screen-header{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;width:100%;padding:16px 20px}
+.btn-back{background:none;border:none;color:rgba(255,255,255,0.5);font-size:15px;cursor:pointer;padding:8px 12px}
+.btn-back:active{color:#fff}
+.pin-title{font-size:13px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:3px;font-weight:500;width:100%;max-width:420px;text-align:left}
+.pin-line{width:32px;height:2px;background:#dc2626;margin:10px 0 20px 0}
+.pin-display{width:100%;max-width:420px;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:14px;margin-bottom:28px;min-height:50px}
+.pin-value{-webkit-flex:1;flex:1;font-size:28px;font-family:monospace;letter-spacing:8px;color:#fff}
+.pin-placeholder{-webkit-flex:1;flex:1;font-size:15px;color:rgba(255,255,255,0.25)}
+.btn-eye{background:none;border:none;color:rgba(255,255,255,0.4);font-size:18px;cursor:pointer;padding:8px}
+.numpad{display:-ms-grid;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%;max-width:420px}
+.numkey{height:64px;border-radius:16px;font-size:22px;font-weight:500;background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.1);cursor:pointer}
+.numkey:active{background:rgba(255,255,255,0.18);-webkit-transform:scale(0.96);transform:scale(0.96)}
+.numkey.muted{color:rgba(255,255,255,0.4);font-size:16px;background:rgba(255,255,255,0.04)}
+.btn-confirm{width:100%;max-width:420px;padding:18px;border-radius:16px;font-size:17px;font-weight:500;background:#dc2626;color:#fff;border:none;cursor:pointer;margin-top:20px}
+.btn-confirm:active{opacity:0.85;-webkit-transform:scale(0.98);transform:scale(0.98)}
+.btn-confirm:disabled{opacity:0.25;cursor:default}
+
+/* Box Size */
+.size-grid{display:-ms-grid;display:grid;grid-template-columns:repeat(3,1fr);gap:14px;width:100%;max-width:440px;margin-top:28px}
+.size-btn{padding:28px 12px;border-radius:16px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.06);color:#fff;cursor:pointer;text-align:center}
+.size-btn:active{background:rgba(255,255,255,0.15);-webkit-transform:scale(0.97);transform:scale(0.97)}
+.size-btn .sz-icon{font-size:36px;margin-bottom:8px}
+.size-btn .sz-label{font-size:15px;font-weight:600}
+.size-btn .sz-dim{font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px}
+
+/* Door Open */
+.door-status{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;gap:32px;margin-top:40px}
+.door-label{font-size:14px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:3px}
+.door-num-box{width:100px;height:100px;border-radius:20px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center}
+.door-num{font-size:44px;font-weight:600}
+.door-open-dot{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;gap:8px}
+.dot-green{width:10px;height:10px;border-radius:50%;background:#22c55e;-webkit-animation:breathe 2s ease-in-out infinite;animation:breathe 2s ease-in-out infinite}
+.dot-label{font-size:14px;color:#4ade80;font-weight:500}
+@-webkit-keyframes breathe{0%,100%{opacity:1}50%{opacity:0.4}}
+@keyframes breathe{0%,100%{opacity:1}50%{opacity:0.4}}
+.door-msg{font-size:16px;color:rgba(255,255,255,0.45);margin-top:28px;text-align:center}
+.door-timer{font-size:13px;color:rgba(255,255,255,0.3);margin-top:14px}
+.door-btns{display:-webkit-flex;display:flex;gap:12px;margin-top:36px}
+.btn-cancel{padding:14px 36px;border-radius:16px;font-size:15px;font-weight:500;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.08);color:#fff;cursor:pointer}
+.btn-cancel:active{background:rgba(255,255,255,0.18)}
+.btn-done{padding:14px 42px;border-radius:16px;font-size:15px;font-weight:500;background:#dc2626;color:#fff;border:none;cursor:pointer}
+.btn-done:active{opacity:0.85}
+
+/* Thank You */
+#thankyou .ty-icon{font-size:64px;margin-top:auto;margin-bottom:16px}
+#thankyou .ty-title{font-size:32px;font-weight:700;letter-spacing:3px}
+#thankyou .ty-sub{font-size:16px;color:rgba(255,255,255,0.45);margin-top:12px;margin-bottom:auto}
+
+/* Login */
+.login-field{width:100%;max-width:420px;margin-bottom:16px}
+.login-label{font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px}
+.login-input{width:100%;padding:14px 16px;border-radius:12px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.06);color:#fff;font-size:16px;outline:none}
+.login-input:focus{border-color:rgba(255,255,255,0.3)}
+
+/* Setup */
+.setup-field{width:100%;max-width:440px;margin-bottom:14px}
+.setup-label{font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:6px}
+.setup-input{width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.06);color:#fff;font-size:15px;outline:none}
+.setup-info{background:rgba(255,255,255,0.06);border-radius:12px;padding:14px 18px;width:100%;max-width:440px;margin-top:12px;margin-bottom:16px}
+.setup-info p{font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:4px}
+
+/* Landscape layout for 1080x600 kiosk screen */
+@media (max-height:650px) {
+  .logo{margin-top:4%}
+  .logo-sm{margin-top:16px}
+  #welcome .title{font-size:28px;letter-spacing:6px}
+  #welcome .btn-next{padding:14px 60px;font-size:16px;margin-top:24px}
+  .menu-btn{padding:16px 24px;margin-bottom:8px}
+  .numkey{height:50px;font-size:20px;border-radius:12px}
+  .pin-display{padding-bottom:10px;margin-bottom:16px;min-height:40px}
+  .btn-confirm{padding:14px;margin-top:12px}
+  .size-grid{gap:10px;margin-top:16px}
+  .size-btn{padding:16px 10px}
+  .door-status{margin-top:20px;gap:20px}
+  .door-num-box{width:80px;height:80px}
+  .door-num{font-size:36px}
+  .door-btns{margin-top:20px}
+  .setup-field{margin-bottom:8px}
+  .setup-input{padding:8px 12px;font-size:14px}
+  .setup-info{padding:10px 14px;margin-top:8px;margin-bottom:10px}
+}
+</style>
+</head>
+<body>
+
+<!-- WELCOME SCREEN -->
+<div id="welcome" class="screen active">
+  <div class="logo">
+    <div class="logo-text">LOC<span>Q</span>AR</div>
+  </div>
+  <div class="title">WELCOME</div>
+  <button class="btn-next" onclick="go('home')">NEXT</button>
+</div>
+
+<!-- HOME SCREEN -->
+<div id="home" class="screen">
+  <div class="logo logo-sm">
+    <div class="logo-text">LOC<span>Q</span>AR</div>
+  </div>
+  <div style="display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;-webkit-align-items:center;align-items:center;margin-top:48px;width:100%;padding:0 24px">
+    <button class="menu-btn" onclick="go('dropoff-pin')">
+      <div class="menu-icon">&#x2B07;</div>
+      <div><div class="menu-label">Drop Off Package</div><div class="menu-sub">Store your package in a locker</div></div>
+    </button>
+    <button class="menu-btn" onclick="go('pickup-pin')">
+      <div class="menu-icon red">&#x2B06;</div>
+      <div><div class="menu-label">Pick Up Package</div><div class="menu-sub">Retrieve your package</div></div>
+    </button>
+  </div>
+  <div class="bottom-links">
+    <button class="bottom-link" onclick="go('login',{loginTitle:'Student Login',loginNext:'home'})">Student Login</button>
+    <button class="bottom-link" onclick="go('setup')">Setup</button>
+    <button class="bottom-link" onclick="go('login',{loginTitle:'Courier Login',loginNext:'home'})">Agent Login</button>
+  </div>
+</div>
+
+<!-- PIN ENTRY SCREEN -->
+<div id="pin" class="screen">
+  <div class="screen-header"><button class="btn-back" onclick="goBack()">&larr; Back</button></div>
+  <div class="logo logo-sm"><div class="logo-text">LOC<span>Q</span>AR</div></div>
+  <div style="display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;-webkit-align-items:center;align-items:center;width:100%;padding:0 24px;margin-top:20px">
+    <div class="pin-title" id="pinTitle">Enter PIN</div>
+    <div class="pin-line"></div>
+    <div class="pin-display">
+      <div id="pinValue" class="pin-value"></div>
+      <div id="pinPlaceholder" class="pin-placeholder">Enter password</div>
+      <button class="btn-eye" onclick="togglePinVis()">&#x1F441;</button>
+    </div>
+    <div class="numpad">
+      <button class="numkey" onclick="pinKey('1')">1</button>
+      <button class="numkey" onclick="pinKey('2')">2</button>
+      <button class="numkey" onclick="pinKey('3')">3</button>
+      <button class="numkey" onclick="pinKey('4')">4</button>
+      <button class="numkey" onclick="pinKey('5')">5</button>
+      <button class="numkey" onclick="pinKey('6')">6</button>
+      <button class="numkey" onclick="pinKey('7')">7</button>
+      <button class="numkey" onclick="pinKey('8')">8</button>
+      <button class="numkey" onclick="pinKey('9')">9</button>
+      <button class="numkey muted" onclick="pinBackspace()">&#x232B;</button>
+      <button class="numkey" onclick="pinKey('0')">0</button>
+      <button class="numkey muted" onclick="pinClear()">CLR</button>
+    </div>
+    <button class="btn-confirm" id="pinConfirmBtn" disabled onclick="pinConfirm()">Confirm</button>
+  </div>
+</div>
+
+<!-- BOX SIZE SCREEN -->
+<div id="boxsize" class="screen">
+  <div class="screen-header"><button class="btn-back" onclick="goBack()">&larr; Back</button></div>
+  <div class="logo logo-sm"><div class="logo-text">LOC<span>Q</span>AR</div></div>
+  <div style="display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;-webkit-align-items:center;align-items:center;width:100%;padding:0 24px;margin-top:28px">
+    <div class="pin-title">Select Locker Size</div>
+    <div class="pin-line"></div>
+    <div class="size-grid">
+      <button class="size-btn" onclick="selectSize('S')"><div class="sz-icon">&#x1F4E6;</div><div class="sz-label">Small</div><div class="sz-dim">30x40x50cm</div></button>
+      <button class="size-btn" onclick="selectSize('M')"><div class="sz-icon">&#x1F4E6;</div><div class="sz-label">Medium</div><div class="sz-dim">40x50x60cm</div></button>
+      <button class="size-btn" onclick="selectSize('L')"><div class="sz-icon">&#x1F4E6;</div><div class="sz-label">Large</div><div class="sz-dim">50x60x80cm</div></button>
+    </div>
+  </div>
+</div>
+
+<!-- DOOR OPEN SCREEN -->
+<div id="dooropen" class="screen">
+  <div style="-webkit-flex:1;flex:1;display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;padding:0 24px">
+    <div class="logo logo-sm"><div class="logo-text">LOC<span>Q</span>AR</div></div>
+    <div class="door-label" id="doorTypeLabel" style="margin-top:28px">Drop Off Your Package</div>
+    <div class="door-status">
+      <span class="door-label">Door</span>
+      <div class="door-num-box"><span class="door-num" id="doorNumDisplay">3</span></div>
+      <div class="door-open-dot"><div class="dot-green"></div><span class="dot-label">Open</span></div>
+    </div>
+    <div class="door-msg" id="doorMsg">Please close door when package is stored</div>
+    <div class="door-timer" id="doorTimer">Auto-close in 60s</div>
+    <div class="door-btns">
+      <button class="btn-cancel" onclick="goBack()">Cancel</button>
+      <button class="btn-done" onclick="doorDone()">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- THANK YOU SCREEN -->
+<div id="thankyou" class="screen">
+  <div class="ty-icon">&#x2705;</div>
+  <div class="ty-title">Thank You!</div>
+  <div class="ty-sub">See you next time</div>
+</div>
+
+<!-- LOGIN SCREEN -->
+<div id="login" class="screen">
+  <div class="screen-header"><button class="btn-back" onclick="goBack()">&larr; Back</button></div>
+  <div class="logo logo-sm"><div class="logo-text">LOC<span>Q</span>AR</div></div>
+  <div style="display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;-webkit-align-items:center;align-items:center;width:100%;padding:0 24px;margin-top:28px">
+    <div class="pin-title" id="loginTitle">Login</div>
+    <div class="pin-line"></div>
+    <div class="login-field"><div class="login-label">Username / Phone</div><input class="login-input" id="loginUser" type="text" autocomplete="off"></div>
+    <div class="login-field"><div class="login-label">Password</div><input class="login-input" id="loginPass" type="password" autocomplete="off"></div>
+    <button class="btn-confirm" onclick="loginConfirm()">Login</button>
+  </div>
+</div>
+
+<!-- SETUP SCREEN -->
+<div id="setup" class="screen">
+  <div class="screen-header"><button class="btn-back" onclick="goBack()">&larr; Back</button></div>
+  <div class="logo logo-sm"><div class="logo-text">LOC<span>Q</span>AR</div></div>
+  <div style="display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;-webkit-align-items:center;align-items:center;width:100%;padding:0 24px;margin-top:20px;overflow-y:auto;-webkit-overflow-scrolling:touch;max-height:calc(100% - 100px)">
+    <div class="pin-title">Kiosk Setup</div>
+    <div class="pin-line"></div>
+    <div class="setup-field"><div class="setup-label">API URL</div><input class="setup-input" id="cfgApiUrl" type="text" value="https://api.locqar.com"></div>
+    <div class="setup-field"><div class="setup-label">API Key</div><input class="setup-input" id="cfgApiKey" type="text"></div>
+    <div class="setup-field"><div class="setup-label">Locker Serial Number</div><input class="setup-input" id="cfgLockerSN" type="text"></div>
+    <div class="setup-field"><div class="setup-label">Serial Port</div><input class="setup-input" id="cfgSerialPort" type="text" value="/dev/ttyS1"></div>
+    <div class="setup-info" id="setupHealth"></div>
+    <button class="btn-confirm" onclick="saveSetup()">Save &amp; Start</button>
+    <button class="btn-cancel" style="margin-top:10px;width:100%;max-width:440px;text-align:center" onclick="testDoor()">Test Door 1</button>
+  </div>
+</div>
+
+<script>
+// LocQar Kiosk — Vanilla JS (Chrome 37 / Android 5.1.1 compatible)
+// No ES6+, no modules, no arrow functions, no let/const, no template literals
+
+// ─── State ──────────────────────────────────────────────
+var currentScreen = 'welcome';
+var navHistory = [];
+var session = {};
+var pin = '';
+var pinVisible = false;
+var doorCountdown = 60;
+var doorTimerInterval = null;
+var thankTimerTimeout = null;
+
+// ─── Navigation ─────────────────────────────────────────
+function go(screen, data) {
+  if (data) {
+    for (var k in data) {
+      if (data.hasOwnProperty(k)) session[k] = data[k];
+    }
+  }
+  navHistory.push(currentScreen);
+  showScreen(screen);
+}
+
+function goBack() {
+  var prev = navHistory.pop();
+  if (prev) showScreen(prev);
+  else showScreen('home');
+}
+
+function goWelcome() {
+  navHistory = [];
+  session = {};
+  showScreen('welcome');
+}
+
+function showScreen(name) {
+  // Handle composite routes
+  if (name === 'dropoff-pin') {
+    session.pinTitle = 'Drop Off Package';
+    session.pinNext = 'boxsize';
+    session.doorType = 'dropoff';
+    name = 'pin';
+  } else if (name === 'pickup-pin') {
+    session.pinTitle = 'Pick Up Package';
+    session.pinNext = 'dooropen';
+    session.doorType = 'pickup';
+    name = 'pin';
+  }
+
+  // Hide all, show target
+  var screens = document.querySelectorAll('.screen');
+  for (var i = 0; i < screens.length; i++) {
+    screens[i].className = 'screen';
+  }
+  var el = document.getElementById(name);
+  if (el) el.className = 'screen active';
+  currentScreen = name;
+
+  // Screen-specific init
+  if (name === 'pin') initPin();
+  if (name === 'dooropen') initDoorOpen();
+  if (name === 'thankyou') initThankYou();
+  if (name === 'login') initLogin();
+  if (name === 'setup') initSetup();
+}
+
+// ─── PIN Screen ─────────────────────────────────────────
+function initPin() {
+  pin = '';
+  pinVisible = false;
+  updatePinDisplay();
+  var title = document.getElementById('pinTitle');
+  if (title) title.textContent = session.pinTitle || 'Enter PIN';
+}
+
+function pinKey(k) {
+  if (pin.length < 10) {
+    pin += k;
+    updatePinDisplay();
+  }
+}
+
+function pinBackspace() {
+  pin = pin.slice(0, -1);
+  updatePinDisplay();
+}
+
+function pinClear() {
+  pin = '';
+  updatePinDisplay();
+}
+
+function togglePinVis() {
+  pinVisible = !pinVisible;
+  updatePinDisplay();
+}
+
+function updatePinDisplay() {
+  var valEl = document.getElementById('pinValue');
+  var phEl = document.getElementById('pinPlaceholder');
+  var btn = document.getElementById('pinConfirmBtn');
+  if (pin.length > 0) {
+    valEl.style.display = '';
+    phEl.style.display = 'none';
+    if (pinVisible) {
+      valEl.textContent = pin;
+    } else {
+      var dots = '';
+      for (var i = 0; i < pin.length; i++) dots += '\u2022';
+      valEl.textContent = dots;
+    }
+    btn.disabled = false;
+  } else {
+    valEl.style.display = 'none';
+    phEl.style.display = '';
+    btn.disabled = true;
+  }
+}
+
+function pinConfirm() {
+  if (!pin) return;
+  session.pin = pin;
+  var next = session.pinNext || 'home';
+  if (next === 'dooropen') {
+    // For pickup, assign a door (in production this comes from API)
+    session.doorNumber = Math.floor(Math.random() * 12) + 1;
+  }
+  go(next);
+}
+
+// ─── Box Size Screen ────────────────────────────────────
+function selectSize(size) {
+  session.boxSize = size;
+  // Assign a door (in production this comes from API based on available lockers)
+  session.doorNumber = Math.floor(Math.random() * 12) + 1;
+  go('dooropen');
+}
+
+// ─── Door Open Screen ───────────────────────────────────
+function initDoorOpen() {
+  doorCountdown = 60;
+  var num = session.doorNumber || 1;
+  var isDropoff = session.doorType !== 'pickup';
+
+  document.getElementById('doorNumDisplay').textContent = num;
+  document.getElementById('doorTypeLabel').textContent = isDropoff ? 'Drop Off Your Package' : 'Pick Up Your Package';
+  document.getElementById('doorMsg').textContent = isDropoff ? 'Please close door when package is stored' : 'Please close door after retrieval';
+  updateDoorTimer();
+
+  // Try to open the physical door via LocQarDoor bridge
+  if (typeof LocQarDoor !== 'undefined') {
+    try {
+      var result = JSON.parse(LocQarDoor.openDoor(num));
+      if (!result.success) {
+        document.getElementById('doorMsg').textContent = 'Door error: ' + (result.error || 'failed');
+      }
+    } catch (e) {
+      document.getElementById('doorMsg').textContent = 'Bridge error: ' + e.message;
+    }
+  }
+
+  if (doorTimerInterval) clearInterval(doorTimerInterval);
+  doorTimerInterval = setInterval(function() {
+    doorCountdown--;
+    updateDoorTimer();
+    if (doorCountdown <= 0) {
+      clearInterval(doorTimerInterval);
+      doorDone();
+    }
+  }, 1000);
+}
+
+function updateDoorTimer() {
+  var el = document.getElementById('doorTimer');
+  if (el) el.textContent = 'Auto-close in ' + doorCountdown + 's';
+}
+
+function doorDone() {
+  if (doorTimerInterval) clearInterval(doorTimerInterval);
+  go('thankyou');
+}
+
+// ─── Thank You Screen ───────────────────────────────────
+function initThankYou() {
+  if (thankTimerTimeout) clearTimeout(thankTimerTimeout);
+  thankTimerTimeout = setTimeout(function() {
+    goWelcome();
+  }, 5000);
+}
+
+// ─── Login Screen ───────────────────────────────────────
+function initLogin() {
+  document.getElementById('loginTitle').textContent = session.loginTitle || 'Login';
+  document.getElementById('loginUser').value = '';
+  document.getElementById('loginPass').value = '';
+}
+
+function loginConfirm() {
+  var user = document.getElementById('loginUser').value;
+  var pass = document.getElementById('loginPass').value;
+  if (!user || !pass) return;
+  session.user = user;
+  go(session.loginNext || 'home');
+}
+
+// ─── Setup Screen ───────────────────────────────────────
+function initSetup() {
+  var cfg = loadConfig();
+  document.getElementById('cfgApiUrl').value = cfg.apiUrl || 'https://api.locqar.com';
+  document.getElementById('cfgApiKey').value = cfg.apiKey || '';
+  document.getElementById('cfgLockerSN').value = cfg.lockerSN || '';
+  document.getElementById('cfgSerialPort').value = cfg.serialPort || '/dev/ttyS1';
+
+  var healthEl = document.getElementById('setupHealth');
+  if (typeof LocQarDoor !== 'undefined') {
+    try {
+      var h = JSON.parse(LocQarDoor.health());
+      healthEl.innerHTML = '<p><b>Serial Port:</b> ' + esc(h.serialPort) + '</p>' +
+        '<p><b>Port Exists:</b> ' + h.portExists + '</p>' +
+        '<p><b>Readable:</b> ' + h.portReadable + '</p>' +
+        '<p><b>Writable:</b> ' + h.portWritable + '</p>';
+
+      var ports = JSON.parse(LocQarDoor.listPorts());
+      if (ports.length > 0) {
+        var portList = '';
+        for (var i = 0; i < ports.length; i++) {
+          portList += '<p>' + esc(ports[i].path) + ' (R:' + ports[i].readable + ' W:' + ports[i].writable + ')</p>';
+        }
+        healthEl.innerHTML += '<p style="margin-top:8px"><b>Available Ports:</b></p>' + portList;
+      }
+    } catch (e) {
+      healthEl.innerHTML = '<p>DoorBridge error: ' + esc(e.message) + '</p>';
+    }
+  } else {
+    healthEl.innerHTML = '<p>DoorBridge not available (not running on Android kiosk)</p>';
+  }
+}
+
+function saveSetup() {
+  var cfg = {
+    apiUrl: document.getElementById('cfgApiUrl').value,
+    apiKey: document.getElementById('cfgApiKey').value,
+    lockerSN: document.getElementById('cfgLockerSN').value,
+    serialPort: document.getElementById('cfgSerialPort').value
+  };
+  try { localStorage.setItem('locqar_config', JSON.stringify(cfg)); } catch(e) {}
+
+  if (typeof LocQarDoor !== 'undefined' && cfg.serialPort) {
+    try { LocQarDoor.setPort(cfg.serialPort); } catch(e) {}
+  }
+
+  goWelcome();
+}
+
+function testDoor() {
+  if (typeof LocQarDoor === 'undefined') {
+    alert('DoorBridge not available');
+    return;
+  }
+  var port = document.getElementById('cfgSerialPort').value;
+  if (port) {
+    try { LocQarDoor.setPort(port); } catch(e) {}
+  }
+  try {
+    var result = JSON.parse(LocQarDoor.openDoor(1));
+    alert('Door 1: ' + (result.success ? 'OPENED' : 'FAILED - ' + (result.error || 'unknown')));
+  } catch (e) {
+    alert('Error: ' + e.message);
+  }
+}
+
+function loadConfig() {
+  try {
+    var str = localStorage.getItem('locqar_config');
+    return str ? JSON.parse(str) : {};
+  } catch(e) {
+    return {};
+  }
+}
+
+// HTML escape helper
+function esc(s) {
+  if (!s) return '';
+  var d = document.createElement('div');
+  d.appendChild(document.createTextNode(s));
+  return d.innerHTML;
+}
+
+// ─── Init ───────────────────────────────────────────────
+showScreen('welcome');
+</script>
+</body>
+</html>
