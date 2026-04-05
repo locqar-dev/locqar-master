@@ -1,14 +1,12 @@
 /**
- * Winnsen Integration â two surfaces:
+ * Locker Hardware Integration
  *
- * 1. POST /api/winnsen/events      â kiosk hardware calls us directly
- *    Auth: x-api-key: WINNSEN_INBOUND_API_KEY
- *    Body: { action, ...params }
+ * POST /api/winnsen/events — kiosk hardware calls us directly
+ * Auth: x-api-key: WINNSEN_INBOUND_API_KEY
+ * Body: { action, ...params }
  *
- * 2. GET/POST /api/winnsen/callbacks/*  â Winnsen cloud calls us after locker events
- *    No auth (Winnsen doesn't send headers); security by obscurity is the standard pattern.
- *
- * Winnsen Cloud API (we call them) lives in src/shared/services/winnsen.cloud.ts
+ * All door control is local via @locqar/door-controller (RS-485).
+ * Winnsen cloud dependency has been fully removed.
  */
 
 import { Router, Request, Response, NextFunction } from 'express';
@@ -17,12 +15,11 @@ import { config } from '../../config';
 import { verifyPassword } from '../../shared/utils/crypto';
 import { eventBus } from '../../shared/events/eventBus';
 import { logger } from '../../shared/utils/logger';
-// @ts-ignore - door-controller is a JS package without type declarations
-import { doorClient } from '@locqar/door-controller/src/client';
+import { lockerCloud } from '../../shared/services/locker-cloud.service';
 
 const router = Router();
 
-// ââ Inbound API key auth ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Inbound API key auth ────────────────────────────────────────────────────
 
 function requireInboundKey(req: Request, res: Response, next: NextFunction): void {
   const key = req.headers['x-api-key'];
@@ -33,25 +30,25 @@ function requireInboundKey(req: Request, res: Response, next: NextFunction): voi
   next();
 }
 
-// ââ Helper: find locker by Winnsen SN ââââââââââââââââââââââââââââââââââââââââ
+// ── Helper: find locker by serial number ────────────────────────────────────
 
 async function lockerBySN(sn: string) {
   return prisma.locker.findFirst({ where: { winnsenSn: sn } });
 }
 
-// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─────────────────────────────────────────────────────────────────────────────
 // POST /api/winnsen/events
-// Kiosk touchscreen hardware â our server (direct, not via Winnsen cloud)
-// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Kiosk touchscreen hardware → our server (direct local communication)
+// ─────────────────────────────────────────────────────────────────────────────
 
 router.post('/events', requireInboundKey, async (req: Request, res: Response, next: NextFunction) => {
   const { action, ...body } = req.body as Record<string, string>;
-  logger.info(`[Winnsen/events] action=${action}`, body);
+  logger.info(`[Locker/events] action=${action}`, body);
 
   try {
     switch (action) {
 
-      // ââ Agent (courier) login at kiosk ââââââââââââââââââââââââââââââââââââââ
+      // ── Agent (courier) login at kiosk ──────────────────────────────────
 
       case 'agent-login-by-phone': {
         const { phone, password } = body;
@@ -69,7 +66,6 @@ router.post('/events', requireInboundKey, async (req: Request, res: Response, ne
       }
 
       case 'agent-login-by-qr': {
-        // qrToken = the QR code string stored on the courier's profile
         const { qrToken } = body;
         const courier = await prisma.courier.findFirst({ where: { qrCode: qrToken } });
         if (!courier) {
@@ -78,7 +74,7 @@ router.post('/events', requireInboundKey, async (req: Request, res: Response, ne
         return res.json({ agentId: courier.id });
       }
 
-      // ââ Member (partner/customer) login at kiosk ââââââââââââââââââââââââââââ
+      // ── Member (partner/customer) login at kiosk ────────────────────────
 
       case 'member-login-by-phone': {
         const { phone, password } = body;
@@ -90,7 +86,6 @@ router.post('/events', requireInboundKey, async (req: Request, res: Response, ne
       }
 
       case 'member-login-by-qr': {
-        // qrToken = plain API key (hashed in DB â find by prefix match then full verify)
         const { qrToken } = body;
         if (!qrToken) return res.status(400).json({ Status: 'Fail', Message: 'qrToken required' });
         const prefix = qrToken.slice(0, 8);
@@ -101,15 +96,13 @@ router.post('/events', requireInboundKey, async (req: Request, res: Response, ne
         return res.json({ memberId: key.customerId });
       }
 
-      // ââ Member package check âââââââââââââââââââââââââââââââââââââââââââââââââ
+      // ── Member package check ────────────────────────────────────────────
 
       case 'member-package': {
-        // "Does this member have a package waiting at this locker?"
         const { memberId, lockerSN } = body;
         const locker = await lockerBySN(lockerSN);
         if (!locker) return res.json({ hasPackage: false });
 
-        // memberId can be a User.id or Customer.id â try both
         const pkg = await prisma.package.findFirst({
           where: {
             lockerId: locker.id,
@@ -127,7 +120,7 @@ router.post('/events', requireInboundKey, async (req: Request, res: Response, ne
         });
       }
 
-      // ââ Agent order operations âââââââââââââââââââââââââââââââââââââââââââââââ
+      // ── Agent order operations ──────────────────────────────────────────
 
       case 'agent-validate-order': {
         const { orderNumber, lockerSN } = body;
@@ -157,7 +150,6 @@ router.post('/events', requireInboundKey, async (req: Request, res: Response, ne
       }
 
       case 'agent-reuse-door': {
-        // Agent wants to re-open the same door for an in-progress order
         const { orderNumber } = body;
         const pkg = await prisma.package.findFirst({
           where: { waybill: orderNumber },
@@ -180,17 +172,16 @@ router.post('/events', requireInboundKey, async (req: Request, res: Response, ne
         return res.json({ Status: matches ? 'Success' : 'Fail', Message: matches ? '' : 'Locker mismatch' });
       }
 
-      // ââ Physical locker events (door closed after drop/collect) âââââââââââââ
+      // ── Physical locker events (door closed after drop/collect) ─────────
 
       case 'order-dropoff': {
-        // Package placed in locker, door closed
         const { orderNumber, lockerSN, doorNum, owner } = body;
         const locker = await lockerBySN(lockerSN);
         if (!locker) return res.json({ Status: 'Fail', Message: 'Locker not found' });
 
         const newStatus = owner === 'agent'
-          ? 'delivered_to_locker'     // agent delivering to recipient
-          : 'at_locker_pending_courier'; // sender dropped off, courier picks up
+          ? 'delivered_to_locker'
+          : 'at_locker_pending_courier';
 
         await prisma.$transaction([
           prisma.package.updateMany({
@@ -217,12 +208,11 @@ router.post('/events', requireInboundKey, async (req: Request, res: Response, ne
         ]);
 
         eventBus.emit('package:status_changed', { waybill: orderNumber, status: newStatus });
-        logger.info(`[Winnsen] order-dropoff waybill=${orderNumber} door=${doorNum} sn=${lockerSN}`);
+        logger.info(`[Locker] order-dropoff waybill=${orderNumber} door=${doorNum} sn=${lockerSN}`);
         return res.json({ Status: 'Success', Message: '' });
       }
 
       case 'order-collected': {
-        // Package taken from locker, door closed
         const { orderNumber, lockerSN, doorNum, owner } = body;
         const locker = await lockerBySN(lockerSN);
 
@@ -254,14 +244,13 @@ router.post('/events', requireInboundKey, async (req: Request, res: Response, ne
         ]);
 
         eventBus.emit('package:status_changed', { waybill: orderNumber, status: newStatus });
-        logger.info(`[Winnsen] order-collected waybill=${orderNumber} owner=${owner} sn=${lockerSN}`);
+        logger.info(`[Locker] order-collected waybill=${orderNumber} owner=${owner} sn=${lockerSN}`);
         return res.json({ Status: 'Success', Message: '' });
       }
 
-      // ââ Payment at kiosk âââââââââââââââââââââââââââââââââââââââââââââââââââââ
+      // ── Payment at kiosk ────────────────────────────────────────────────
 
       case 'order-payment': {
-        // "Has this order been paid for?"
         const { orderNumber } = body;
         const pkg = await prisma.package.findFirst({
           where: { waybill: orderNumber },
@@ -271,7 +260,6 @@ router.post('/events', requireInboundKey, async (req: Request, res: Response, ne
       }
 
       case 'generate-payment-page': {
-        // Return a Paystack checkout URL for the kiosk screen to display
         const { orderNumber } = body;
         const pkg = await prisma.package.findFirst({
           where: { waybill: orderNumber },
@@ -279,22 +267,20 @@ router.post('/events', requireInboundKey, async (req: Request, res: Response, ne
         });
         if (!pkg) return res.json({ Status: 'Fail', Message: 'Order not found' });
 
-        // In production: initialize a Paystack transaction here via your payments service
-        // For now: return a URL pattern the frontend can handle
         const expiredAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
         const url = `${config.urls.customer}/pay?order=${orderNumber}`;
         return res.json({ url, expiredAt, orderNumber });
       }
 
+      // ── Door control (via lockerCloud service) ─────────────────────────
 
-      // ── Local door control (replaces Winnsen cloud SetDoorOpen) ──────────
       case 'open-door': {
         const { doorNumber, lockerSN } = body;
         if (!doorNumber) {
           return res.status(400).json({ Status: 'Fail', Message: 'doorNumber required' });
         }
-        const result = await doorClient.openDoor(Number(doorNumber));
-        logger.info(`[Winnsen/local] open-door door=${doorNumber} success=${result.success}`);
+        const result = await lockerCloud.openDoor(Number(doorNumber));
+        logger.info(`[Locker] open-door door=${doorNumber} success=${result.success}`);
         return res.json({
           Status: result.success ? 'Success' : 'Fail',
           Message: result.error || '',
@@ -302,68 +288,165 @@ router.post('/events', requireInboundKey, async (req: Request, res: Response, ne
         });
       }
 
-      // ── Local door status (replaces Winnsen cloud GetTerminalInfo) ───────
       case 'door-status': {
         const { doorNumber: dn, station: st } = body;
         if (dn) {
-          const result = await doorClient.getDoorStatus(Number(dn));
-          return res.json({ Status: result.success ? 'Success' : 'Fail', door: result.door, doorStatus: result.status });
+          const result = await lockerCloud.getDoorStatus(Number(dn));
+          return res.json({ Status: !result.error ? 'Success' : 'Fail', door: result.door, doorStatus: result.status });
         }
         if (st) {
-          const result = await doorClient.getStationStatus(Number(st));
-          return res.json({ Status: 'Success', doors: result.doors });
+          const result = await lockerCloud.getStationDoorStatus(Number(st));
+          return res.json({ Status: !result.error ? 'Success' : 'Fail', doors: result.doors });
         }
         return res.status(400).json({ Status: 'Fail', Message: 'doorNumber or station required' });
       }
 
-      // ── Verify pickup code + open door (full local flow) ────────────────
+      // ── Verify pickup code + open door ──────────────────────────────────
+
       case 'verify-pickup-code': {
         const { code } = body;
         if (!code) {
           return res.status(400).json({ Status: 'Fail', Message: 'code required' });
         }
-        const pkg = await prisma.package.findFirst({
-          where: { pickupCode: code, status: 'delivered_to_locker' },
-          select: { id: true, waybill: true, lockerDoorNo: true, lockerId: true },
-        });
-        if (!pkg) {
+        const validation = await lockerCloud.validatePickupCode(code);
+        if (!validation.valid) {
           return res.status(401).json({ Status: 'Fail', Message: 'Invalid or expired code' });
         }
-        if (!pkg.lockerDoorNo) {
+        if (!validation.doorNo) {
           return res.status(400).json({ Status: 'Fail', Message: 'No door assigned to this package' });
         }
-        const openResult = await doorClient.openDoor(pkg.lockerDoorNo);
+        const openResult = await lockerCloud.openDoor(validation.doorNo);
         if (!openResult.success) {
-          logger.error(`[Winnsen/local] Failed to open door ${pkg.lockerDoorNo} for pickup code ${code}`);
+          logger.error(`[Locker] Failed to open door ${validation.doorNo} for pickup code ${code}`);
           return res.status(500).json({ Status: 'Fail', Message: 'Door failed to open' });
         }
-        logger.info(`[Winnsen/local] verify-pickup-code code=${code} waybill=${pkg.waybill} door=${pkg.lockerDoorNo}`);
+        logger.info(`[Locker] verify-pickup-code code=${code} waybill=${validation.waybill} door=${validation.doorNo}`);
         return res.json({
           Status: 'Success',
-          waybill: pkg.waybill,
-          doorNumber: pkg.lockerDoorNo,
+          waybill: validation.waybill,
+          doorNumber: validation.doorNo,
           message: 'Door opened. Please collect your package.',
         });
       }
 
-      // ── Generate pickup code locally (replaces Winnsen cloud SetPinCode) ─
+      // ── Generate pickup code ────────────────────────────────────────────
+
       case 'generate-pickup-code': {
-        const { orderNumber: on } = body;
+        const { orderNumber: on, phone, terminalId } = body;
         if (!on) {
           return res.status(400).json({ Status: 'Fail', Message: 'orderNumber required' });
         }
-        const pickupCode = String(Math.floor(100000 + Math.random() * 900000));
-        const updated = await prisma.package.updateMany({
-          where: { waybill: on },
-          data: { pickupCode },
-        });
-        if (updated.count === 0) {
-          return res.status(404).json({ Status: 'Fail', Message: 'Order not found' });
+        try {
+          const result = await lockerCloud.generatePickupCode({
+            waybill: on,
+            phone: phone || undefined,
+            terminalId: terminalId || undefined,
+          });
+          return res.json({ Status: 'Success', pickupCode: result.pickupCode, orderNumber: on, doorNo: result.doorNo });
+        } catch (err: any) {
+          return res.status(404).json({ Status: 'Fail', Message: err.message });
         }
-        logger.info(`[Winnsen/local] generate-pickup-code waybill=${on} code=${pickupCode}`);
-        return res.json({ Status: 'Success', pickupCode, orderNumber: on });
       }
 
+      // ── Terminal & locker info ──────────────────────────────────────────
+
+      case 'terminal-list': {
+        const terminals = await lockerCloud.getTerminalList();
+        return res.json({ Status: 'Success', terminals });
+      }
+
+      case 'terminal-info': {
+        const { terminalId: tid, lockerSN: sn, includeLiveStatus } = body;
+        try {
+          const doors = sn
+            ? await lockerCloud.getTerminalInfoBySN(sn, includeLiveStatus === 'true')
+            : tid
+              ? await lockerCloud.getTerminalInfo(tid, includeLiveStatus === 'true')
+              : null;
+          if (!doors) {
+            return res.status(400).json({ Status: 'Fail', Message: 'terminalId or lockerSN required' });
+          }
+          return res.json({ Status: 'Success', doors });
+        } catch (err: any) {
+          return res.status(404).json({ Status: 'Fail', Message: err.message });
+        }
+      }
+
+      // ── Courier list ────────────────────────────────────────────────────
+
+      case 'courier-list': {
+        const { terminalId: ctid } = body;
+        const couriers = await lockerCloud.getCourierList(ctid || undefined);
+        return res.json({ Status: 'Success', couriers });
+      }
+
+      // ── Order queries ───────────────────────────────────────────────────
+
+      case 'order-list': {
+        const { startDate, endDate, terminalId: otid, status: ostatus } = body;
+        if (!startDate || !endDate) {
+          return res.status(400).json({ Status: 'Fail', Message: 'startDate and endDate required' });
+        }
+        const orders = await lockerCloud.getOrderList({
+          startDate: new Date(startDate),
+          endDate: new Date(endDate),
+          terminalId: otid || undefined,
+          status: ostatus || undefined,
+        });
+        return res.json({ Status: 'Success', orders });
+      }
+
+      case 'order-info': {
+        const { orderNumber: oi } = body;
+        if (!oi) {
+          return res.status(400).json({ Status: 'Fail', Message: 'orderNumber required' });
+        }
+        const order = await lockerCloud.getOrderInfo(oi);
+        if (!order) {
+          return res.status(404).json({ Status: 'Fail', Message: 'Order not found' });
+        }
+        return res.json({ Status: 'Success', order });
+      }
+
+      // ── Hardware errors ─────────────────────────────────────────────────
+
+      case 'error-list': {
+        const { startDate: esd, endDate: eed, terminalId: etid } = body;
+        if (!esd || !eed) {
+          return res.status(400).json({ Status: 'Fail', Message: 'startDate and endDate required' });
+        }
+        const errors = await lockerCloud.getErrorList({
+          startDate: new Date(esd),
+          endDate: new Date(eed),
+          terminalId: etid || undefined,
+        });
+        return res.json({ Status: 'Success', errors });
+      }
+
+      case 'log-error': {
+        const { lockerId: eid, eventType: eet, description: edesc } = body;
+        if (!eid || !eet) {
+          return res.status(400).json({ Status: 'Fail', Message: 'lockerId and eventType required' });
+        }
+        await lockerCloud.logError({ lockerId: eid, eventType: eet, description: edesc });
+        return res.json({ Status: 'Success', Message: 'Error logged' });
+      }
+
+      // ── Health / heartbeat ──────────────────────────────────────────────
+
+      case 'health': {
+        const health = await lockerCloud.healthCheck();
+        return res.json({ Status: 'Success', ...health });
+      }
+
+      case 'heartbeat': {
+        const { terminalId: htid } = body;
+        if (!htid) {
+          return res.status(400).json({ Status: 'Fail', Message: 'terminalId required' });
+        }
+        await lockerCloud.heartbeat(htid);
+        return res.json({ Status: 'Success', Message: 'Heartbeat received' });
+      }
 
       default:
         return res.status(400).json({ Status: 'Fail', Message: `Unknown action: ${action}` });
@@ -372,230 +455,5 @@ router.post('/events', requireInboundKey, async (req: Request, res: Response, ne
     next(err);
   }
 });
-
-// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-// Winnsen Cloud callbacks â Winnsen calls these after locker events
-// Mounted at /api/winnsen/callbacks/*
-// Winnsen uses GET with query-string params for most callbacks
-// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-
-const cb = Router();
-
-// GET /callbacks/check-courier
-// Winnsen asks us: "Is this courier allowed to operate?"
-cb.get('/check-courier', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { type, account, password, card } = req.query as Record<string, string>;
-    let found = false;
-    let courierName: string | undefined;
-
-    if (type === '2' && card) {
-      // Card-based â look up by cardNo
-      const courier = await prisma.courier.findFirst({
-        where: { cardNo: card },
-        include: { user: { select: { name: true } } },
-      });
-      found = !!courier;
-      courierName = courier?.user.name;
-    } else {
-      // Phone + password
-      const user = await prisma.user.findFirst({
-        where: { phone: account },
-        include: { courier: true },
-      });
-      if (user?.courier && user.passwordHash) {
-        found = await verifyPassword(password, user.passwordHash);
-        courierName = user.name;
-      }
-    }
-
-    if (!found) {
-      return res.json({ Status: 'Fail', Data: [], Message: 'Courier not found' });
-    }
-    return res.json({
-      Status: 'Success',
-      Data: courierName ? [{ Name: courierName }] : [],
-      Message: '',
-    });
-  } catch (err) { next(err); }
-});
-
-// GET /callbacks/check-parcel
-// Winnsen asks us: "Is this waybill valid? Return recipient phone for PIN SMS."
-cb.get('/check-parcel', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { waybillno } = req.query as Record<string, string>;
-    const pkg = await prisma.package.findFirst({
-      where: { waybill: waybillno },
-      select: { recipientPhone: true, status: true },
-    });
-
-    if (!pkg) {
-      return res.json({ Status: 'Fail', Data: [], Message: 'Waybill not found' });
-    }
-
-    // Strip country code (+233 â 0...) â Winnsen expects local format
-    const phone = pkg.recipientPhone?.replace(/^\+233/, '0') ?? '';
-    return res.json({ Status: 'Success', Data: [{ Phone: phone }], Message: '' });
-  } catch (err) { next(err); }
-});
-
-// POST /callbacks/courier-dropoff
-// Winnsen tells us: courier just dropped off a package
-cb.post('/courier-dropoff', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { waybillno, terminalsn, doorno, pickupcode } = req.body as Record<string, string>;
-
-    await prisma.package.updateMany({
-      where: { waybill: waybillno },
-      data: {
-        status: 'delivered_to_locker',
-        lockerDoorNo: Number(doorno),
-        pickupCode: pickupcode,
-        deliveredAt: new Date(),
-      },
-    });
-
-    const locker = await lockerBySN(terminalsn);
-    if (locker) {
-      await prisma.locker.update({ where: { id: locker.id }, data: { status: 'occupied' } });
-    }
-
-    eventBus.emit('package:status_changed', { waybill: waybillno, status: 'delivered_to_locker' });
-    logger.info(`[Winnsen/cb] courier-dropoff waybill=${waybillno} door=${doorno} locker=${terminalsn}`);
-    return res.json({ Status: 'Success', Data: [], Message: '' });
-  } catch (err) { next(err); }
-});
-
-// POST /callbacks/recipient-pickup
-// Winnsen tells us: recipient collected their package
-cb.post('/recipient-pickup', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { waybillno, terminalsn } = req.body as Record<string, string>;
-
-    await prisma.package.updateMany({
-      where: { waybill: waybillno },
-      data: { status: 'picked_up', lockerDoorNo: null, pickedUpAt: new Date() },
-    });
-
-    const locker = await lockerBySN(terminalsn);
-    if (locker) {
-      await prisma.locker.update({ where: { id: locker.id }, data: { status: 'available' } });
-    }
-
-    eventBus.emit('package:status_changed', { waybill: waybillno, status: 'picked_up' });
-    logger.info(`[Winnsen/cb] recipient-pickup waybill=${waybillno} locker=${terminalsn}`);
-    return res.json({ Status: 'Success', Data: [], Message: '' });
-  } catch (err) { next(err); }
-});
-
-// POST /callbacks/courier-recall
-// Winnsen tells us: courier recalled an uncollected package
-cb.post('/courier-recall', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { waybillno, terminalsn } = req.body as Record<string, string>;
-
-    await prisma.package.updateMany({
-      where: { waybill: waybillno },
-      data: { status: 'recalled', lockerDoorNo: null },
-    });
-
-    const locker = await lockerBySN(terminalsn);
-    if (locker) {
-      await prisma.locker.update({ where: { id: locker.id }, data: { status: 'available' } });
-    }
-
-    eventBus.emit('package:status_changed', { waybill: waybillno, status: 'recalled' });
-    logger.info(`[Winnsen/cb] courier-recall waybill=${waybillno}`);
-    return res.json({ Status: 'Success', Data: [], Message: '' });
-  } catch (err) { next(err); }
-});
-
-// POST /callbacks/sender-dropoff
-// Winnsen tells us: sender dropped off a package (send flow)
-cb.post('/sender-dropoff', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { waybillno, terminalsn, doorno } = req.body as Record<string, string>;
-
-    await prisma.package.updateMany({
-      where: { waybill: waybillno },
-      data: { status: 'at_locker_pending_courier' as any, lockerDoorNo: Number(doorno) },
-    });
-
-    const locker = await lockerBySN(terminalsn);
-    if (locker) {
-      await prisma.locker.update({ where: { id: locker.id }, data: { status: 'occupied' } });
-    }
-
-    eventBus.emit('package:status_changed', { waybill: waybillno, status: 'at_locker_pending_courier' });
-    return res.json({ Status: 'Success', Data: [], Message: '' });
-  } catch (err) { next(err); }
-});
-
-// POST /callbacks/courier-pickup
-// Winnsen tells us: courier picked up sender's parcel from locker
-cb.post('/courier-pickup', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { waybillno, terminalsn } = req.body as Record<string, string>;
-
-    await prisma.package.updateMany({
-      where: { waybill: waybillno },
-      data: { status: 'in_transit_to_locker', lockerDoorNo: null },
-    });
-
-    const locker = await lockerBySN(terminalsn);
-    if (locker) {
-      await prisma.locker.update({ where: { id: locker.id }, data: { status: 'available' } });
-    }
-
-    eventBus.emit('package:status_changed', { waybill: waybillno, status: 'in_transit_to_locker' });
-    return res.json({ Status: 'Success', Data: [], Message: '' });
-  } catch (err) { next(err); }
-});
-
-// POST /callbacks/recipient-return
-// Winnsen tells us: recipient returned a package to the locker
-cb.post('/recipient-return', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { waybillno, terminalsn, doorno } = req.body as Record<string, string>;
-
-    await prisma.package.updateMany({
-      where: { waybill: waybillno },
-      data: { status: 'return_at_locker' as any, lockerDoorNo: Number(doorno) },
-    });
-
-    const locker = await lockerBySN(terminalsn);
-    if (locker) {
-      await prisma.locker.update({ where: { id: locker.id }, data: { status: 'occupied' } });
-    }
-
-    eventBus.emit('package:status_changed', { waybill: waybillno, status: 'return_at_locker' });
-    return res.json({ Status: 'Success', Data: [], Message: '' });
-  } catch (err) { next(err); }
-});
-
-// POST /callbacks/courier-pick-returned
-// Winnsen tells us: courier collected the returned package from the locker
-cb.post('/courier-pick-returned', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { waybillno, terminalsn } = req.body as Record<string, string>;
-
-    await prisma.package.updateMany({
-      where: { waybill: waybillno },
-      data: { status: 'return_in_transit' as any, lockerDoorNo: null },
-    });
-
-    const locker = await lockerBySN(terminalsn);
-    if (locker) {
-      await prisma.locker.update({ where: { id: locker.id }, data: { status: 'available' } });
-    }
-
-    eventBus.emit('package:status_changed', { waybill: waybillno, status: 'return_in_transit' });
-    return res.json({ Status: 'Success', Data: [], Message: '' });
-  } catch (err) { next(err); }
-});
-
-// Mount callbacks sub-router
-router.use('/callbacks', cb);
 
 export { router as winnsenRouter };

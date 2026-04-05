@@ -18,39 +18,7 @@ import { logger } from '../../shared/utils/logger';
 
 const router = Router();
 
-// ── Types ────────────────────────────────────────────────────────────────────
-
-interface LockerCommand {
-  id: string;
-  type: 'open-door';
-  lockerSN: string;
-  doorNum: number;
-  status: 'pending' | 'processing' | 'completed' | 'failed' | 'expired';
-  createdAt: Date;
-  processedAt?: Date;
-  error?: string;
-}
-
-// ── In-memory command queue ──────────────────────────────────────────────────
-// For single-instance dev. Swap to Redis for production clustering:
-//   key = `locker:commands:${lockerSN}`, value = JSON list
-
-const commands = new Map<string, LockerCommand>();
 const TTL_SECONDS = 120;
-
-// Cleanup expired commands every 60s
-setInterval(() => {
-  const now = Date.now();
-  for (const [id, cmd] of commands) {
-    if (now - cmd.createdAt.getTime() > TTL_SECONDS * 2 * 1000) {
-      commands.delete(id);
-    }
-  }
-}, 60_000);
-
-function generateId(): string {
-  return `cmd_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-}
 
 // ── Auth: same x-api-key as winnsen inbound ──────────────────────────────────
 
@@ -95,23 +63,20 @@ router.post('/open-door', async (req: Request, res: Response, next: NextFunction
       }
     }
 
-    const id = generateId();
-    const command: LockerCommand = {
-      id,
-      type: 'open-door',
-      lockerSN,
-      doorNum: Number(doorNum),
-      status: 'pending',
-      createdAt: new Date(),
-    };
+    const command = await prisma.lockerCommand.create({
+      data: {
+        type: 'open-door',
+        lockerSN,
+        doorNum: Number(doorNum),
+        status: 'pending',
+      }
+    });
 
-    commands.set(id, command);
-
-    logger.info(`[Locker/cmd] Queued ${id}: ${lockerSN} door #${doorNum}`);
+    logger.info(`[Locker/cmd] Queued ${command.id}: ${lockerSN} door #${doorNum}`);
 
     return res.json({
       success: true,
-      commandId: id,
+      commandId: command.id,
       message: `Door open command queued for ${lockerSN} door #${doorNum}`,
     });
   } catch (err) {
@@ -122,70 +87,91 @@ router.post('/open-door', async (req: Request, res: Response, next: NextFunction
 // ── GET /api/locker/commands?lockerSN=X ──────────────────────────────────────
 // Kiosk polls this every 2-3 seconds. Returns pending commands, marks them processing.
 
-router.get('/commands', (req: Request, res: Response) => {
-  const lockerSN = req.query.lockerSN as string;
-  if (!lockerSN) {
-    return res.status(400).json({ success: false, message: 'lockerSN query param required' });
-  }
-
-  const now = Date.now();
-  const pending: LockerCommand[] = [];
-
-  for (const cmd of commands.values()) {
-    if (cmd.lockerSN !== lockerSN) continue;
-    if (cmd.status !== 'pending') continue;
-
-    // Check TTL
-    if (now - cmd.createdAt.getTime() > TTL_SECONDS * 1000) {
-      cmd.status = 'expired';
-      continue;
+router.get('/commands', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const lockerSN = req.query.lockerSN as string;
+    if (!lockerSN) {
+      return res.status(400).json({ success: false, message: 'lockerSN query param required' });
     }
 
-    cmd.status = 'processing';
-    pending.push(cmd);
-  }
+    const expiredThreshold = new Date(Date.now() - TTL_SECONDS * 1000);
+    
+    // Set expired ones
+    await prisma.lockerCommand.updateMany({
+      where: {
+        lockerSN,
+        status: 'pending',
+        createdAt: { lt: expiredThreshold }
+      },
+      data: { status: 'expired' }
+    });
 
-  if (pending.length > 0) {
-    logger.info(`[Locker/cmd] ${lockerSN} picked up ${pending.length} command(s)`);
-  }
+    const pendingCmds = await prisma.lockerCommand.findMany({
+      where: { lockerSN, status: 'pending' },
+      orderBy: { createdAt: 'asc' }
+    });
 
-  return res.json(pending);
+    if (pendingCmds.length > 0) {
+      await prisma.lockerCommand.updateMany({
+        where: { id: { in: pendingCmds.map(c => c.id) } },
+        data: { status: 'processing' }
+      });
+      pendingCmds.forEach(c => c.status = 'processing');
+      logger.info(`[Locker/cmd] ${lockerSN} picked up ${pendingCmds.length} command(s)`);
+    }
+
+    return res.json(pendingCmds);
+  } catch (err) {
+    next(err);
+  }
 });
 
 // ── POST /api/locker/commands/:id/ack ────────────────────────────────────────
 // Kiosk reports back after executing.
 
-router.post('/commands/:id/ack', (req: Request, res: Response) => {
-  const cmd = commands.get(String(req.params.id));
-  if (!cmd) {
-    return res.status(404).json({ success: false, message: 'Command not found' });
+router.post('/commands/:id/ack', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const cmd = await prisma.lockerCommand.findUnique({ where: { id: String(req.params.id) } });
+    if (!cmd) {
+      return res.status(404).json({ success: false, message: 'Command not found' });
+    }
+
+    const { success, error } = req.body;
+
+    const updated = await prisma.lockerCommand.update({
+      where: { id: cmd.id },
+      data: {
+        status: success ? 'completed' : 'failed',
+        error: success ? null : (error || 'Unknown error'),
+        processedAt: new Date()
+      }
+    });
+
+    if (success) {
+      logger.info(`[Locker/cmd] ${cmd.id} completed: ${cmd.lockerSN} door #${cmd.doorNum}`);
+    } else {
+      logger.warn(`[Locker/cmd] ${cmd.id} failed: ${updated.error}`);
+    }
+
+    return res.json({ success: true, status: updated.status });
+  } catch (err) {
+    next(err);
   }
-
-  const { success, error } = req.body;
-
-  if (success) {
-    cmd.status = 'completed';
-    cmd.processedAt = new Date();
-    logger.info(`[Locker/cmd] ${cmd.id} completed: ${cmd.lockerSN} door #${cmd.doorNum}`);
-  } else {
-    cmd.status = 'failed';
-    cmd.error = error || 'Unknown error';
-    cmd.processedAt = new Date();
-    logger.warn(`[Locker/cmd] ${cmd.id} failed: ${cmd.error}`);
-  }
-
-  return res.json({ success: true, status: cmd.status });
 });
 
 // ── GET /api/locker/commands/:id ─────────────────────────────────────────────
 // Check status of a specific command (test page polls this).
 
-router.get('/commands/:id', (req: Request, res: Response) => {
-  const cmd = commands.get(String(req.params.id));
-  if (!cmd) {
-    return res.status(404).json({ success: false, message: 'Command not found' });
+router.get('/commands/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const cmd = await prisma.lockerCommand.findUnique({ where: { id: String(req.params.id) } });
+    if (!cmd) {
+      return res.status(404).json({ success: false, message: 'Command not found' });
+    }
+    return res.json(cmd);
+  } catch (err) {
+    next(err);
   }
-  return res.json(cmd);
 });
 
 export { router as lockerCommandsRouter };

@@ -1158,3 +1158,18 @@ model AuditLog {
 
   @@map("audit_logs")
 }
+
+// ── Commands ──────────────────────────────────────────────────────────────────
+
+model LockerCommand {
+  id          String   @id @default(uuid())
+  type        String   @default("open-door")
+  lockerSN    String
+  doorNum     Int
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+  processedAt DateTime?
+  error       String?
+
+  @@map("locker_commands")
+}

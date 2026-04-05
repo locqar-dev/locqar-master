@@ -24,7 +24,7 @@ const { mapDoorToStation } = require('./protocol');
 // ── Config ───────────────────────────────────────────────────────────────────
 
 const CONFIG = {
-  serialPort: process.env.SERIAL_PORT || '/dev/ttyS0',
+  serialPort: process.env.SERIAL_PORT || '/dev/ttyS1',
   baudRate: parseInt(process.env.SERIAL_BAUD || '9600', 10),
   httpPort: parseInt(process.env.HTTP_PORT || '9090', 10),
   simulate: process.env.SIMULATE === 'true',

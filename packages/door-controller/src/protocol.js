@@ -10,21 +10,30 @@
  * Frame format:
  *   [0x90] [Length] [FunctionCode] [Payload...] [0x03]
  *
- * Function codes:
- *   0x05 — Open Lock (send)
- *   0x85 — Open Lock (response)
- *   0x02 — Check Lock Status (send)
- *   0x82 — Check Lock Status (response)
+ * Function codes (send):
+ *   0x05 — Open Lock
+ *   0x02 — Check Lock Status
+ *
+ * Function codes (response):
+ *   Some boards use 0x80 offset (documented): 0x85 (open), 0x82 (status)
+ *   Some boards use 0xA0 offset (alternate):  0xA5 (open), 0xA2 (status)
+ *   Both variants are accepted by the parsers below.
  */
 
 const FRAME_HEADER = 0x90;
 const FRAME_END = 0x03;
 
-// Function codes
+// Function codes — send
 const FC_OPEN_LOCK_SEND = 0x05;
-const FC_OPEN_LOCK_RECV = 0x85;
 const FC_CHECK_STATUS_SEND = 0x02;
+
+// Function codes — response (documented 0x80 offset)
+const FC_OPEN_LOCK_RECV = 0x85;
 const FC_CHECK_STATUS_RECV = 0x82;
+
+// Function codes — response (alternate 0xA0 offset, confirmed on some boards)
+const FC_OPEN_LOCK_RECV_ALT = 0xA5;
+const FC_CHECK_STATUS_RECV_ALT = 0xA2;
 
 /**
  * Build an Open Lock command frame
@@ -55,7 +64,11 @@ function parseOpenLockResponse(data) {
   if (!data || data.length < 7) {
     return { station: 0, lock: 0, success: false, error: 'Incomplete response' };
   }
-  if (data[0] !== FRAME_HEADER || data[2] !== FC_OPEN_LOCK_RECV || data[6] !== FRAME_END) {
+  if (data[0] !== FRAME_HEADER || data[6] !== FRAME_END) {
+    return { station: 0, lock: 0, success: false, error: 'Invalid frame' };
+  }
+  // Accept both 0x85 (documented) and 0xA5 (alternate board variant)
+  if (data[2] !== FC_OPEN_LOCK_RECV && data[2] !== FC_OPEN_LOCK_RECV_ALT) {
     return { station: 0, lock: 0, success: false, error: 'Invalid frame' };
   }
 
@@ -111,7 +124,11 @@ function parseCheckStatusResponse(data) {
   if (!data || data.length < 7) {
     return { station: 0, doors: {}, error: 'Incomplete response' };
   }
-  if (data[0] !== FRAME_HEADER || data[2] !== FC_CHECK_STATUS_RECV || data[6] !== FRAME_END) {
+  if (data[0] !== FRAME_HEADER || data[6] !== FRAME_END) {
+    return { station: 0, doors: {}, error: 'Invalid frame' };
+  }
+  // Accept both 0x82 (documented) and 0xA2 (alternate board variant)
+  if (data[2] !== FC_CHECK_STATUS_RECV && data[2] !== FC_CHECK_STATUS_RECV_ALT) {
     return { station: 0, doors: {}, error: 'Invalid frame' };
   }
 
@@ -128,13 +145,22 @@ function parseCheckStatusResponse(data) {
 
 /**
  * Map a global door number to (station, lock) pair.
- * Station 1 = doors 1-16, Station 2 = doors 17-32, etc.
+ *
+ * Station offset is configurable via STATION_OFFSET env var.
+ * Default offset = 0: station 1 = doors 1-16, station 2 = doors 17-32
+ * Offset = 1:         station 2 = doors 1-16, station 3 = doors 17-32
+ *
+ * Use offset when your first board's DIP switch isn't set to station 1.
+ * For example, if the first board is station 2, set STATION_OFFSET=1.
+ *
  * @param {number} doorNumber - Global door number (1-based)
+ * @param {number} [stationOffset] - Override for STATION_OFFSET env var
  * @returns {{ station: number, lock: number }}
  */
-function mapDoorToStation(doorNumber) {
+function mapDoorToStation(doorNumber, stationOffset) {
   if (doorNumber < 1) throw new Error(`Invalid door number: ${doorNumber}`);
-  const station = Math.ceil(doorNumber / 16);
+  const offset = stationOffset ?? parseInt(process.env.STATION_OFFSET || '0', 10);
+  const station = Math.ceil(doorNumber / 16) + offset;
   const lock = ((doorNumber - 1) % 16) + 1;
   return { station, lock };
 }
@@ -144,8 +170,10 @@ module.exports = {
   FRAME_END,
   FC_OPEN_LOCK_SEND,
   FC_OPEN_LOCK_RECV,
+  FC_OPEN_LOCK_RECV_ALT,
   FC_CHECK_STATUS_SEND,
   FC_CHECK_STATUS_RECV,
+  FC_CHECK_STATUS_RECV_ALT,
   buildOpenLockCommand,
   parseOpenLockResponse,
   buildCheckStatusCommand,

@@ -8,8 +8,8 @@ const ROLE_PERMISSIONS: Record<StaffRole, Set<string>> = {
   ADMIN: new Set([
     'staff.view', 'staff.create', 'staff.edit', 'staff.delete',
     'packages.view', 'packages.create', 'packages.edit', 'packages.scan',
-    'couriers.view', 'couriers.create', 'couriers.edit',
-    'lockers.view', 'lockers.edit', 'lockers.open',
+    'couriers.view', 'couriers.create', 'couriers.edit', 'couriers.delete',
+    'lockers.view', 'lockers.edit', 'lockers.open', 'lockers.create', 'lockers.delete',
     'terminals.view',
     'fleet.view', 'fleet.create', 'fleet.edit',
     'routes.view', 'routes.create', 'routes.edit',
@@ -25,7 +25,7 @@ const ROLE_PERMISSIONS: Record<StaffRole, Set<string>> = {
   MANAGER: new Set([
     'staff.view',
     'packages.view', 'packages.create', 'packages.edit', 'packages.scan',
-    'couriers.view', 'couriers.edit',
+    'couriers.view', 'couriers.create', 'couriers.edit',
     'lockers.view', 'lockers.open',
     'terminals.view',
     'fleet.view',
