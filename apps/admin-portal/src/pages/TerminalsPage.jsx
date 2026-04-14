@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Plus, Search, Grid3X3, Unlock, Package, Wrench, TrendingUp, Building2, MapPin, X, Wifi, WifiOff, AlertTriangle, DoorOpen, KeyRound, Copy, Check, Edit, Trash2, Save, LayoutGrid, List, ChevronRight } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { TerminalPresencePanel } from '../components/terminals/TerminalPresencePanel';
+import { KioskProvisioningCard } from '../components/terminals/KioskProvisioningCard';
 import { StatusBadge } from '../components/ui/Badge';
 import { hasPermission, DOOR_SIZES } from '../constants';
 import { terminalsData as INITIAL_TERMINALS, phonePinData, getTerminalAddress, lockersData, packagesData, terminalErrorsData } from '../constants/mockData';
@@ -287,6 +288,7 @@ export const TerminalsPage = ({
 
       {/* Live Presence */}
       <TerminalPresencePanel />
+      <KioskProvisioningCard />
 
       {/* Metric Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
