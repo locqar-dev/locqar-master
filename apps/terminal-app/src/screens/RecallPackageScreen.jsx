@@ -13,40 +13,45 @@ export default function RecallPackageScreen({ onBack, onRecallDone }) {
 
   return (
     <ScreenLayout showBack onBack={onBack}>
-      <div className="flex-1 flex flex-col items-center pt-20 w-full px-8 animate-slide">
+      <div className="flex-1 flex flex-col items-center pt-[100px] w-full px-10 animate-slide">
         <LocQarLogo size="sm" />
 
-        <div className="w-full mt-8 max-w-[540px]">
-          <div className="flex items-center justify-between mb-6">
-            <p className="text-sm text-white/50 uppercase tracking-wider font-medium">Your Packages</p>
-            <span className="text-xs text-white/50 bg-white/10 px-3 py-1.5 rounded-full">
-              {MOCK_PACKAGES.length} items
+        <div className="w-full mt-10 max-w-[800px]">
+          {/* Recall Package badge */}
+          <div className="mb-8">
+            <span className="bg-locqar-red text-white text-[16px] font-bold uppercase tracking-wider px-6 py-3 rounded-lg">
+              Recall Package
             </span>
           </div>
 
-          <div className="flex flex-col gap-3">
+          {/* Table header */}
+          <div className="grid grid-cols-4 gap-3 px-6 py-4 bg-locqar-dark/10 rounded-t-xl">
+            <span className="text-[14px] text-locqar-dark/50 uppercase font-bold">Order No.</span>
+            <span className="text-[14px] text-locqar-dark/50 uppercase font-bold">Order Ref.</span>
+            <span className="text-[14px] text-locqar-dark/50 uppercase font-bold">Drop Off Time</span>
+            <span className="text-[14px] text-locqar-dark/50 uppercase font-bold">Mobile Number</span>
+          </div>
+
+          {/* Table body */}
+          <div className="bg-locqar-dark/5 rounded-b-xl border border-locqar-dark/10 border-t-0 min-h-[260px]">
             {MOCK_PACKAGES.map((pkg, i) => (
               <button
                 key={i}
                 onClick={() => setShowConfirm(true)}
-                className="w-full flex items-center justify-between px-6 py-5 rounded-2xl
-                  border border-white/15 bg-white/10 backdrop-blur-sm
-                  hover:bg-white/20 hover:border-white/30 active:scale-[0.99] transition-all text-left"
+                className="w-full grid grid-cols-4 gap-3 px-6 py-5
+                  hover:bg-locqar-dark/10 active:scale-[0.99] transition-all text-left
+                  border-b border-locqar-dark/5 last:border-0"
               >
-                <div className="flex-1 min-w-0">
-                  <p className="text-base font-semibold text-white">{pkg.orderNo}</p>
-                  <p className="text-sm text-white/50 mt-1">{pkg.mobile}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-white/50">{pkg.dropOffTime}</p>
-                  <p className="text-sm text-locqar-red font-medium mt-1">Recall</p>
-                </div>
+                <span className="text-[16px] text-locqar-dark font-medium">{pkg.orderNo}</span>
+                <span className="text-[16px] text-locqar-dark/60">{pkg.orderRef}</span>
+                <span className="text-[16px] text-locqar-dark/60">{pkg.dropOffTime}</span>
+                <span className="text-[16px] text-locqar-dark/60">{pkg.mobile}</span>
               </button>
             ))}
 
             {MOCK_PACKAGES.length === 0 && (
-              <div className="py-16 text-center">
-                <p className="text-lg text-white/50">No packages to recall</p>
+              <div className="py-20 text-center">
+                <p className="text-[22px] text-locqar-dark/40">No packages to recall</p>
               </div>
             )}
           </div>
@@ -56,7 +61,7 @@ export default function RecallPackageScreen({ onBack, onRecallDone }) {
       {showConfirm && (
         <ConfirmModal
           title="Locker 3"
-          subtitle="Package Recall"
+          subtitle="Package Recall Confirmation"
           question="Did you collect the package?"
           onYes={() => { setShowConfirm(false); onRecallDone?.() }}
           onNo={() => setShowConfirm(false)}

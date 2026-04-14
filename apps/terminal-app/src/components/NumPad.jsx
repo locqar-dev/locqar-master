@@ -8,39 +8,39 @@ export default function NumPad({ onKey, onBackspace, onModeToggle, mode = 'num' 
   const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
 
   return (
-    <div className="grid grid-cols-3 gap-3 w-full max-w-[420px]">
+    <div className="grid grid-cols-3 gap-4 w-full max-w-[620px]">
       {keys.map((key) => (
         <button
           key={key}
           onClick={() => onKey(key)}
-          className="h-[72px] rounded-2xl text-2xl font-medium
-            bg-white/10 text-white border border-white/15
-            hover:bg-white/20 active:scale-[0.97] transition-all"
+          className="h-[100px] rounded-2xl text-[32px] font-medium
+            bg-locqar-dark text-white
+            hover:bg-black active:scale-[0.97] transition-all"
         >
           {key}
         </button>
       ))}
       <button
         onClick={onBackspace}
-        className="h-[72px] rounded-2xl flex items-center justify-center
-          bg-white/10 text-white/60 border border-white/15
-          hover:bg-white/20 active:scale-[0.97] transition-all"
+        className="h-[100px] rounded-2xl flex items-center justify-center
+          bg-locqar-dark text-white/60
+          hover:bg-black active:scale-[0.97] transition-all"
       >
-        <Delete size={26} />
+        <Delete size={34} />
       </button>
       <button
         onClick={() => onKey('0')}
-        className="h-[72px] rounded-2xl text-2xl font-medium
-          bg-white/10 text-white border border-white/15
-          hover:bg-white/20 active:scale-[0.97] transition-all"
+        className="h-[100px] rounded-2xl text-[32px] font-medium
+          bg-locqar-dark text-white
+          hover:bg-black active:scale-[0.97] transition-all"
       >
         0
       </button>
       <button
         onClick={onModeToggle}
-        className="h-[72px] rounded-2xl text-lg font-medium
-          bg-white/5 text-white/50 border border-white/15
-          hover:bg-white/15 active:scale-[0.97] transition-all"
+        className="h-[100px] rounded-2xl text-[24px] font-medium
+          bg-gray-400/40 text-locqar-dark/70
+          hover:bg-gray-400/60 active:scale-[0.97] transition-all"
       >
         ABC
       </button>
@@ -56,44 +56,44 @@ function AlphaPad({ onKey, onBackspace, onModeToggle }) {
   ]
 
   return (
-    <div className="flex flex-col gap-2 w-full max-w-[540px]">
+    <div className="flex flex-col gap-3 w-full max-w-[760px]">
       {rows.map((row, i) => (
-        <div key={i} className="flex justify-center gap-1.5">
+        <div key={i} className="flex justify-center gap-2">
           {row.map((key) => (
             <button
               key={key}
               onClick={() => onKey(key)}
-              className="w-[48px] h-14 rounded-xl text-base font-medium
-                bg-white/10 text-white border border-white/15
-                hover:bg-white/20 active:scale-[0.97] transition-all"
+              className="w-[64px] h-[72px] rounded-xl text-[20px] font-medium
+                bg-locqar-dark text-white
+                hover:bg-black active:scale-[0.97] transition-all"
             >
               {key}
             </button>
           ))}
         </div>
       ))}
-      <div className="flex justify-center gap-2 mt-1">
+      <div className="flex justify-center gap-3 mt-1">
         <button
           onClick={onBackspace}
-          className="h-14 px-6 rounded-xl flex items-center justify-center
-            bg-white/10 text-white/60 border border-white/15
-            hover:bg-white/20 active:scale-[0.97] transition-all"
+          className="h-[72px] px-8 rounded-xl flex items-center justify-center
+            bg-locqar-dark text-white/60
+            hover:bg-black active:scale-[0.97] transition-all"
         >
-          <Delete size={22} />
+          <Delete size={28} />
         </button>
         <button
           onClick={() => onKey(' ')}
-          className="h-14 flex-1 rounded-xl text-base font-medium text-white/50
-            bg-white/10 border border-white/15
-            hover:bg-white/20 active:scale-[0.97] transition-all"
+          className="h-[72px] flex-1 rounded-xl text-[20px] font-medium text-white/70
+            bg-locqar-dark
+            hover:bg-black active:scale-[0.97] transition-all"
         >
           space
         </button>
         <button
           onClick={onModeToggle}
-          className="h-14 px-6 rounded-xl text-base font-medium
-            bg-white/5 text-white/50 border border-white/15
-            hover:bg-white/15 active:scale-[0.97] transition-all"
+          className="h-[72px] px-8 rounded-xl text-[20px] font-medium
+            bg-gray-400/40 text-locqar-dark/70
+            hover:bg-gray-400/60 active:scale-[0.97] transition-all"
         >
           123
         </button>

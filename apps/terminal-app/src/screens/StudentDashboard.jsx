@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { ScreenLayout, LocQarLogo } from '../components/Layout'
 
 const SIZES = [
-  { label: 'XS', desc: 'Extra Small' },
-  { label: 'S', desc: 'Small' },
-  { label: 'M', desc: 'Medium' },
-  { label: 'L', desc: 'Large' },
+  { label: 'XS' },
+  { label: 'S' },
+  { label: 'M' },
+  { label: 'L' },
 ]
 
 export default function StudentDashboard({ onSelectSize, onBack }) {
@@ -16,26 +16,25 @@ export default function StudentDashboard({ onSelectSize, onBack }) {
       <div className="flex-1 flex flex-col items-center justify-center animate-slide">
         <LocQarLogo size="sm" />
 
-        <div className="mt-10 text-center">
-          <p className="text-sm text-white/50 uppercase tracking-wider font-medium">Select Box Size</p>
-          <div className="w-8 h-px bg-locqar-red mx-auto mt-3 animate-line" />
+        <div className="mt-12 text-center">
+          <p className="text-[20px] text-locqar-dark/70 uppercase tracking-wider font-bold">
+            Please Select Box Size
+          </p>
         </div>
 
-        <div className="flex gap-5 mt-14">
-          {SIZES.map(({ label, desc }) => (
+        {/* Size buttons — black squares, red when selected */}
+        <div className="flex gap-6 mt-16">
+          {SIZES.map(({ label }) => (
             <button
               key={label}
               onClick={() => setSelected(label)}
-              className={`w-24 h-28 rounded-2xl flex flex-col items-center justify-center gap-2 transition-all active:scale-95
+              className={`w-[140px] h-[140px] rounded-2xl flex items-center justify-center transition-all active:scale-95
                 ${selected === label
                   ? 'bg-locqar-red text-white'
-                  : 'bg-white/10 border border-white/15 text-white hover:bg-white/20'
+                  : 'bg-locqar-dark text-white hover:bg-black'
                 }`}
             >
-              <span className="text-2xl font-semibold">{label}</span>
-              <span className={`text-[10px] uppercase tracking-wider ${selected === label ? 'text-white/70' : 'text-white/40'}`}>
-                {desc}
-              </span>
+              <span className="text-[36px] font-bold">{label}</span>
             </button>
           ))}
         </div>
@@ -43,12 +42,12 @@ export default function StudentDashboard({ onSelectSize, onBack }) {
         <button
           onClick={() => selected && onSelectSize(selected)}
           disabled={!selected}
-          className="mt-14 px-20 py-5 rounded-2xl text-lg font-medium
+          className="mt-16 w-[476px] h-[112px] rounded-[20px] text-[24px] font-bold uppercase tracking-wide
             bg-locqar-red text-white
             hover:bg-red-700 active:scale-[0.98] transition-all
             disabled:opacity-30 disabled:cursor-not-allowed"
         >
-          Open Locker
+          OPEN
         </button>
       </div>
     </ScreenLayout>

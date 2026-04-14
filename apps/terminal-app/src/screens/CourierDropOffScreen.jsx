@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ScreenLayout, LocQarLogo } from '../components/Layout'
 import NumPad from '../components/NumPad'
-import { ScanBarcode } from 'lucide-react'
+import { Pencil } from 'lucide-react'
 
 const SIZES = ['XS', 'S', 'M', 'L', 'XL']
 
@@ -30,20 +30,19 @@ export default function CourierDropOffScreen({ onOpen, onBack }) {
 
   return (
     <ScreenLayout showBack onBack={onBack}>
-      <div className="flex-1 flex flex-col items-center pt-20 w-full max-w-[480px] px-8 animate-slide">
-        <LocQarLogo size="sm" />
-
-        <div className="w-full mt-6">
-          <p className="text-xs text-white/40 uppercase tracking-wider font-medium">Box Size</p>
-          <div className="flex gap-2 mt-3">
+      <div className="flex-1 flex flex-col items-center pt-[80px] w-full max-w-[700px] px-10 animate-slide">
+        {/* Box size selector */}
+        <div className="w-full">
+          <p className="text-[16px] text-locqar-dark/50 uppercase tracking-wider font-bold mb-4">Select Box Size</p>
+          <div className="flex gap-3">
             {SIZES.map((size) => (
               <button
                 key={size}
                 onClick={() => setSelectedSize(size)}
-                className={`flex-1 h-14 rounded-xl text-base font-semibold transition-all active:scale-95
+                className={`flex-1 h-[72px] rounded-xl text-[20px] font-bold transition-all active:scale-95
                   ${selectedSize === size
                     ? 'bg-locqar-red text-white'
-                    : 'bg-white/10 border border-white/15 text-white hover:bg-white/20'
+                    : 'bg-locqar-dark text-white hover:bg-black'
                   }`}
               >
                 {size}
@@ -52,33 +51,56 @@ export default function CourierDropOffScreen({ onOpen, onBack }) {
           </div>
         </div>
 
-        <div className="w-full mt-6">
-          <p className="text-xs text-white/40 uppercase tracking-wider font-medium mb-4">Package Details</p>
+        {/* Drop Off Package heading */}
+        <div className="w-full mt-8">
+          <p className="text-[18px] text-locqar-dark/60 uppercase tracking-wider font-bold">Drop Off Package</p>
+          <div className="w-10 h-[2px] bg-locqar-red mt-3 mb-5 animate-line" />
+        </div>
 
-          <div className="w-full mb-4">
-            <button
-              onClick={() => setActiveField('barcode')}
-              className={`w-full pb-3 text-left border-b transition-colors flex items-center
-                ${activeField === 'barcode' ? 'border-white/60' : 'border-white/20'}`}
-            >
-              <span className={`flex-1 text-lg font-mono ${barcode ? 'text-white' : 'text-white/30'}`}>
-                {barcode || 'Scan barcode'}
-              </span>
-              <ScanBarcode size={20} className="text-white/50" />
-            </button>
-          </div>
+        <p className="text-[14px] text-locqar-dark/40 w-full mb-4 uppercase tracking-wide">
+          Scan Bar Code or Enter Manually
+        </p>
 
-          <div className="w-full mb-6">
-            <button
-              onClick={() => setActiveField('recipient')}
-              className={`w-full pb-3 text-left border-b transition-colors
-                ${activeField === 'recipient' ? 'border-white/60' : 'border-white/20'}`}
-            >
-              <span className={`text-lg font-mono ${recipientNumber ? 'text-white' : 'text-white/30'}`}>
-                {recipientNumber || 'Recipient number'}
-              </span>
-            </button>
-          </div>
+        {/* Barcode input — dark bar */}
+        <button
+          onClick={() => setActiveField('barcode')}
+          className={`w-full flex items-center bg-locqar-dark rounded-2xl px-8 py-6 mb-4 transition-all
+            ${activeField === 'barcode' ? 'ring-2 ring-locqar-red' : ''}`}
+        >
+          <span className={`flex-1 text-left text-[20px] ${barcode ? 'text-white font-mono' : 'text-white/40'}`}>
+            {barcode || 'SCAN BARCODE'}
+          </span>
+          <Pencil size={20} className="text-white/40" />
+        </button>
+
+        {/* Recipient number input — dark bar */}
+        <button
+          onClick={() => setActiveField('recipient')}
+          className={`w-full flex items-center bg-locqar-dark rounded-2xl px-8 py-6 mb-5 transition-all
+            ${activeField === 'recipient' ? 'ring-2 ring-locqar-red' : ''}`}
+        >
+          <span className={`flex-1 text-left text-[20px] ${recipientNumber ? 'text-white font-mono' : 'text-white/40'}`}>
+            {recipientNumber || 'RECIPIENT MOBILE NUMBER'}
+          </span>
+          <Pencil size={20} className="text-white/40" />
+        </button>
+
+        <p className="text-[14px] text-locqar-dark/40 w-full mb-4 uppercase tracking-wide">
+          Press 'Open'
+        </p>
+
+        {/* OPEN button */}
+        <div className="w-full mb-5">
+          <button
+            onClick={() => recipientNumber && onOpen({ selectedSize, barcode, recipientNumber })}
+            disabled={!recipientNumber}
+            className="px-16 py-5 rounded-[20px] text-[20px] font-bold uppercase tracking-wide
+              bg-locqar-red text-white
+              hover:bg-red-700 active:scale-[0.98] transition-all
+              disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            OPEN
+          </button>
         </div>
 
         <NumPad
@@ -87,17 +109,6 @@ export default function CourierDropOffScreen({ onOpen, onBack }) {
           onBackspace={handleBackspace}
           onModeToggle={() => setInputMode(m => m === 'num' ? 'abc' : 'num')}
         />
-
-        <button
-          onClick={() => recipientNumber && onOpen({ selectedSize, barcode, recipientNumber })}
-          disabled={!recipientNumber}
-          className="mt-6 w-full max-w-[420px] py-4 rounded-2xl text-lg font-medium
-            bg-locqar-red text-white
-            hover:bg-red-700 active:scale-[0.98] transition-all
-            disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          Open Locker
-        </button>
       </div>
     </ScreenLayout>
   )

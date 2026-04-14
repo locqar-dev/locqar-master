@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react'
 
 function LocQarLogo({ size = 'md' }) {
   const sizes = {
-    sm: { wrapper: 'w-16 h-16', inner: 'w-12 h-12', icon: 22, text: 'text-xl', sub: 'text-xs' },
-    md: { wrapper: 'w-24 h-24', inner: 'w-18 h-18', icon: 34, text: 'text-3xl', sub: 'text-sm' },
-    lg: { wrapper: 'w-36 h-36', inner: 'w-28 h-28', icon: 52, text: 'text-5xl', sub: 'text-base' },
+    sm: { wrapper: 'w-[140px] h-[140px]', inner: 'w-[108px] h-[108px]', icon: 48, text: 'text-[36px]', sub: 'text-[16px]' },
+    md: { wrapper: 'w-[200px] h-[200px]', inner: 'w-[156px] h-[156px]', icon: 68, text: 'text-[48px]', sub: 'text-[18px]' },
+    lg: { wrapper: 'w-[280px] h-[280px]', inner: 'w-[220px] h-[220px]', icon: 96, text: 'text-[64px]', sub: 'text-[22px]' },
   }
   const s = sizes[size]
   return (
@@ -19,10 +19,10 @@ function LocQarLogo({ size = 'md' }) {
         </div>
       </div>
       <div className="text-center">
-        <h1 className={`${s.text} font-semibold tracking-tight text-white`}>
+        <h1 className={`${s.text} font-semibold tracking-tight text-locqar-dark`}>
           Loc<span className="text-locqar-red">Q</span>ar
         </h1>
-        <p className={`${s.sub} text-white/50 tracking-[0.25em] uppercase font-medium`}>
+        <p className={`${s.sub} text-locqar-muted tracking-[0.25em] uppercase font-medium`}>
           Pick N Go
         </p>
       </div>
@@ -47,9 +47,9 @@ function StatusBar() {
   })
 
   return (
-    <div className="flex items-center justify-between px-10 py-5 text-base text-white/50 border-t border-white/10 bg-black/40 backdrop-blur-sm">
-      <div className="flex items-center gap-4 font-mono">
-        <span className="font-medium text-white/80 text-lg">{hours}:{minutes}</span>
+    <div className="flex items-center justify-between px-12 py-6 text-[18px] text-locqar-dark/70">
+      <div className="flex items-center gap-5 font-mono">
+        <span className="font-medium text-locqar-dark text-[22px]">{hours}:{minutes}</span>
         <span>{date}</span>
       </div>
       <span className="tracking-wide">Helpline: 030-825-0086</span>
@@ -61,11 +61,11 @@ function BackButton({ onClick }) {
   return (
     <button
       onClick={onClick}
-      className="absolute top-8 left-8 z-30 w-14 h-14 flex items-center justify-center
-        rounded-full border border-white/20 text-white bg-white/10 backdrop-blur-sm
-        hover:bg-white/20 active:scale-95 transition-all"
+      className="absolute top-10 left-10 z-30 w-16 h-16 flex items-center justify-center
+        rounded-full text-locqar-dark/70
+        hover:bg-black/10 active:scale-95 transition-all"
     >
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M19 12H5M12 19l-7-7 7-7" />
       </svg>
     </button>
@@ -74,9 +74,9 @@ function BackButton({ onClick }) {
 
 function TimerBadge({ seconds }) {
   return (
-    <div className="absolute top-8 right-8 z-10 flex items-center gap-2 text-white/70">
-      <div className="w-3 h-3 rounded-full bg-locqar-red animate-breathe" />
-      <span className="text-lg font-mono font-medium">{seconds}s</span>
+    <div className="absolute top-10 right-10 z-10 flex items-center gap-3 text-locqar-dark/70">
+      <div className="w-4 h-4 rounded-full bg-locqar-red animate-breathe" />
+      <span className="text-[22px] font-mono font-medium">{seconds}s</span>
     </div>
   )
 }
@@ -84,7 +84,16 @@ function TimerBadge({ seconds }) {
 function ScreenLayout({ children, showBack, onBack, showTimer, timerSeconds }) {
   return (
     <div className="h-full flex flex-col relative overflow-hidden">
-      <div className="absolute inset-0 bg-black/60" />
+      {/* LocQar background image */}
+      <div
+        className="absolute inset-0 z-0 pointer-events-none"
+        style={{
+          backgroundImage: 'url(/bg.png)',
+          backgroundSize: '100% 100%',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+        }}
+      />
       {showBack && <BackButton onClick={onBack} />}
       {showTimer && <TimerBadge seconds={timerSeconds} />}
 

@@ -22,44 +22,45 @@ export default function DoorOpenScreen({ type = 'dropoff', doorNumber = 3, onDon
 
   return (
     <ScreenLayout showTimer timerSeconds={countdown}>
-      <div className="flex-1 flex flex-col items-center justify-center animate-fade px-10">
+      <div className="flex-1 flex flex-col items-center justify-center animate-fade px-12">
         <LocQarLogo size="md" />
 
-        <p className="text-sm text-white/50 uppercase tracking-wider font-medium mt-10">
+        <p className="text-[20px] text-locqar-dark/70 uppercase tracking-wider font-bold mt-12">
           {isDropoff ? 'Drop Off Your Package' : 'Pick Up Your Package'}
         </p>
 
-        <div className="flex items-center gap-10 mt-14">
-          <span className="text-base text-white/50 uppercase tracking-wider">Door</span>
-          <div className="w-28 h-28 rounded-3xl bg-white/10 border border-white/20 flex items-center justify-center">
-            <span className="text-5xl font-semibold text-white">{doorNumber}</span>
+        {/* DOOR / Number / OPEN indicator */}
+        <div className="flex items-center gap-10 mt-16">
+          <span className="text-[20px] text-locqar-dark/50 uppercase tracking-wider font-medium">Door</span>
+          <div className="w-[160px] h-[160px] rounded-2xl bg-locqar-dark flex items-center justify-center">
+            <span className="text-[72px] font-bold text-white">{doorNumber}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-green-500 animate-breathe" />
-            <span className="text-base text-green-400 font-medium">Open</span>
+          <div className="flex items-center gap-3">
+            <div className="w-4 h-4 rounded-full bg-green-500 animate-breathe" />
+            <span className="text-[20px] text-green-600 font-bold uppercase">Open</span>
           </div>
         </div>
 
-        <p className="text-lg text-white/50 mt-10 text-center">
+        <p className="text-[20px] text-locqar-dark/60 mt-12 text-center uppercase tracking-wide font-medium">
           {isDropoff
             ? 'Please close door when package is stored'
-            : 'Please close door after retrieval'
+            : 'Please close door'
           }
         </p>
 
         {isDropoff && (
-          <div className="flex gap-4 mt-14">
+          <div className="flex gap-5 mt-16">
             <button
               onClick={onCancel}
-              className="px-10 py-4 rounded-2xl text-base font-medium
-                border border-white/20 text-white bg-white/10
-                hover:bg-white/20 active:scale-[0.98] transition-all"
+              className="px-14 py-5 rounded-[20px] text-[20px] font-bold uppercase
+                bg-locqar-dark text-white
+                hover:bg-black active:scale-[0.98] transition-all"
             >
               Cancel
             </button>
             <button
               onClick={onDone}
-              className="px-12 py-4 rounded-2xl text-base font-medium
+              className="px-16 py-5 rounded-[20px] text-[20px] font-bold uppercase
                 bg-locqar-red text-white
                 hover:bg-red-700 active:scale-[0.98] transition-all"
             >

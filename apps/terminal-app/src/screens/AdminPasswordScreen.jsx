@@ -14,14 +14,12 @@ export default function AdminPasswordScreen({ onSuccess, onBack }) {
   const authInFlight = useRef(false)
 
   const tryAuth = async (nextPin) => {
-    // Fast check: plain-PIN local accounts (instant)
     const localMatch = authenticateSync(nextPin)
     if (localMatch) {
       onSuccess(localMatch)
       return
     }
 
-    // At max length, do a full async check (includes bcrypt cloud accounts)
     if (nextPin.length === PIN_LENGTH) {
       if (authInFlight.current) return
       authInFlight.current = true
@@ -62,12 +60,12 @@ export default function AdminPasswordScreen({ onSuccess, onBack }) {
   return (
     <ScreenLayout showBack onBack={onBack}>
       <div className="flex-1 flex flex-col items-center justify-center animate-slide">
-        <div className="w-20 h-20 rounded-2xl bg-amber-500/20 flex items-center justify-center mb-6">
-          <Shield size={36} className="text-amber-400" />
+        <div className="w-20 h-20 rounded-2xl bg-amber-100 flex items-center justify-center mb-6">
+          <Shield size={36} className="text-amber-600" />
         </div>
 
-        <h2 className="text-2xl font-semibold text-white">Staff Access</h2>
-        <p className="text-sm text-white/50 mt-2">Enter your PIN to continue</p>
+        <h2 className="text-2xl font-bold text-locqar-dark">Staff Access</h2>
+        <p className="text-sm text-locqar-dark/50 mt-2">Enter your PIN to continue</p>
 
         {/* PIN dots */}
         <div className={`flex gap-3 mt-8 mb-8 ${shake ? 'animate-shake' : ''}`}>
@@ -76,8 +74,8 @@ export default function AdminPasswordScreen({ onSuccess, onBack }) {
               key={i}
               className={`w-4 h-4 rounded-full border-2 transition-all duration-200
                 ${i < pin.length
-                  ? error ? 'bg-locqar-red border-locqar-red' : 'bg-amber-400 border-amber-400'
-                  : 'border-white/30'
+                  ? error ? 'bg-locqar-red border-locqar-red' : 'bg-amber-500 border-amber-500'
+                  : 'border-locqar-dark/30'
                 }`}
             />
           ))}
@@ -85,8 +83,8 @@ export default function AdminPasswordScreen({ onSuccess, onBack }) {
 
         {checking && (
           <div className="flex items-center gap-2 mb-4">
-            <Loader2 size={14} className="text-amber-400 animate-spin" />
-            <p className="text-amber-400 text-sm font-medium">Verifying...</p>
+            <Loader2 size={14} className="text-amber-500 animate-spin" />
+            <p className="text-amber-600 text-sm font-medium">Verifying...</p>
           </div>
         )}
 

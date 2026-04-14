@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import WelcomeScreen from './screens/WelcomeScreen'
 import HomeScreen from './screens/HomeScreen'
 import PinEntryScreen from './screens/PinEntryScreen'
@@ -13,6 +13,7 @@ import RecallPackageScreen from './screens/RecallPackageScreen'
 import StudentDashboard from './screens/StudentDashboard'
 import SetupScreen from './screens/SetupScreen'
 import AdminPasswordScreen from './screens/AdminPasswordScreen'
+import AdminMenuScreen from './screens/AdminMenuScreen'
 import AdminLockerScreen from './screens/AdminLockerScreen'
 import StaffManagementScreen from './screens/StaffManagementScreen'
 import { ErrorModal, ConfirmModal, DoorOpenModal } from './components/Modal'
@@ -22,11 +23,28 @@ import { startStaffSync, isSyncConfigured } from './services/staffSync'
 
 const INITIAL_SCREEN = isConfigured() ? 'welcome' : 'setup'
 
+// Design base matches Figma artboard
+const DESIGN_W = 1080
+const DESIGN_H = 1920
+
 export default function App() {
   const [screen, setScreen] = useState(INITIAL_SCREEN)
   const [history, setHistory] = useState([])
   const [modal, setModal] = useState(null)
   const [sessionData, setSessionData] = useState({})
+
+  // Kiosk scaling: fit 1080×1920 design to any viewport
+  const [scale, setScale] = useState(1)
+  useEffect(() => {
+    const update = () => {
+      const sw = window.innerWidth / DESIGN_W
+      const sh = window.innerHeight / DESIGN_H
+      setScale(Math.min(sw, sh))
+    }
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [])
 
   // Start staff sync on boot (pulls cloud staff → localStorage every 2 min)
   useEffect(() => {
@@ -157,11 +175,44 @@ export default function App() {
         return <RecallPackageScreen onBack={goBack} onRecallDone={() => navigate('courier-dashboard')} />
       case 'admin-password':
         return <AdminPasswordScreen onSuccess={(staff) => navigate('admin-locker', { staff })} onBack={goBack} />
+      case 'admin-menu':
+        return (
+          <AdminMenuScreen
+            staff={sessionData.staff}
+            onLockerManagement={() => navigate('admin-locker')}
+            onManageStaff={() => navigate('staff-management')}
+            onExitAdmin={goHome}
+            onExitToOS={() => {
+              // Close the kiosk app — on Android this triggers the Android bridge,
+              // on desktop/browser it closes the window
+              if (window.Android?.exitApp) {
+                window.Android.exitApp()
+              } else {
+                window.close()
+              }
+            }}
+            onRestart={() => {
+              if (window.Android?.restartApp) {
+                window.Android.restartApp()
+              } else {
+                window.location.reload()
+              }
+            }}
+            onShutdown={() => {
+              if (window.Android?.shutdownDevice) {
+                window.Android.shutdownDevice()
+              } else {
+                // On non-Android, just reload as fallback
+                window.location.reload()
+              }
+            }}
+          />
+        )
       case 'admin-locker':
         return (
           <AdminLockerScreen
             staff={sessionData.staff}
-            onBack={goHome}
+            onBack={() => navigate('admin-menu')}
             onManageStaff={() => navigate('staff-management')}
           />
         )
@@ -203,36 +254,46 @@ export default function App() {
   }
 
   return (
-    <div className="h-screen w-screen relative overflow-hidden bg-slate-900">
-      {renderScreen()}
-      {renderModal()}
+    <div className="h-screen w-screen flex items-center justify-center overflow-hidden bg-[#e8e8e8]">
+      <div
+        style={{
+          width: DESIGN_W,
+          height: DESIGN_H,
+          transform: `scale(${scale})`,
+          transformOrigin: 'center center',
+        }}
+        className="relative overflow-hidden"
+      >
+        {renderScreen()}
+        {renderModal()}
 
-      {/* Settings gear — triple-tap bottom-right corner to access */}
-      {screen !== 'setup' && (
-        <button
-          onClick={() => setScreen('setup')}
-          className="fixed top-3 right-3 z-[70] w-8 h-8 flex items-center justify-center
-            text-white/20 hover:text-white/60 transition-colors rounded-full"
-          title="Settings"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        </button>
-      )}
+        {/* Settings gear — triple-tap bottom-right corner to access */}
+        {screen !== 'setup' && (
+          <button
+            onClick={() => setScreen('setup')}
+            className="absolute top-6 right-6 z-[70] w-12 h-12 flex items-center justify-center
+              text-locqar-dark/15 hover:text-locqar-dark/40 transition-colors rounded-full"
+            title="Settings"
+          >
+            <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
+        )}
 
-      {modal?.type === 'door-open' && (
-        <button
-          onClick={() => setModal({ type: 'confirm-fit', doorNumber: modal.doorNumber })}
-          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60]
-            text-sm font-medium text-white/60 px-6 py-3 rounded-full
-            border border-white/20 bg-white/10 backdrop-blur-sm
-            hover:bg-white/20 active:scale-[0.98] transition-all"
-        >
-          Simulate: Door Closed
-        </button>
-      )}
+        {modal?.type === 'door-open' && (
+          <button
+            onClick={() => setModal({ type: 'confirm-fit', doorNumber: modal.doorNumber })}
+            className="absolute bottom-32 left-1/2 -translate-x-1/2 z-[60]
+              text-base font-medium text-locqar-dark/60 px-8 py-4 rounded-full
+              border border-locqar-dark/20 bg-white/60 backdrop-blur-sm
+              hover:bg-white active:scale-[0.98] transition-all"
+          >
+            Simulate: Door Closed
+          </button>
+        )}
+      </div>
     </div>
   )
 }
